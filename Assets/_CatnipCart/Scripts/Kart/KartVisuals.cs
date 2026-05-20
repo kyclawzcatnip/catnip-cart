@@ -19,6 +19,8 @@ namespace CatnipCart.Kart
         public ParticleSystem rightDriftSpark;
         public TrailRenderer leftDriftTrail;
         public TrailRenderer rightDriftTrail;
+        public ParticleSystem leftDriftSmoke;
+        public ParticleSystem rightDriftSmoke;
 
         [Header("Exhaust")]
         public ParticleSystem exhaustParticle;
@@ -79,10 +81,23 @@ namespace CatnipCart.Kart
             }
 
             // Front wheel steering visual
+            float steerAngle = 0f;
+            if (kart.CurrentState == KartController.KartState.Drifting)
+            {
+                // During drift, show counter-steer — wheels point opposite to drift direction
+                float counterSteer = -kart.DriftDirection * 25f;
+                // Player input modulates it
+                float playerInput = kart.NormalizedSpeed * 15f;
+                steerAngle = Mathf.Lerp(counterSteer, counterSteer + playerInput, 0.5f);
+            }
+            else if (kart.CurrentState == KartController.KartState.Normal)
+            {
+                steerAngle = kart.NormalizedSpeed * 25f;
+            }
             if (wheels[0] != null) wheels[0].localEulerAngles = new Vector3(
-                wheels[0].localEulerAngles.x, kart.CurrentState == KartController.KartState.Normal ? kart.NormalizedSpeed * 25f : 0f, 0f);
+                wheels[0].localEulerAngles.x, steerAngle, 0f);
             if (wheels[1] != null) wheels[1].localEulerAngles = new Vector3(
-                wheels[1].localEulerAngles.x, kart.CurrentState == KartController.KartState.Normal ? kart.NormalizedSpeed * 25f : 0f, 0f);
+                wheels[1].localEulerAngles.x, steerAngle, 0f);
         }
 
         void UpdateBodyTilt()
@@ -91,9 +106,11 @@ namespace CatnipCart.Kart
 
             float targetTilt = 0f;
             if (kart.CurrentState == KartController.KartState.Drifting)
-                targetTilt = -kart.DriftDirection * maxTiltAngle * 1.5f;
-            else
-                targetTilt = 0f;
+            {
+                // Tilt based on actual drift angle — feels connected to the physics
+                float normalizedDriftAngle = kart.DriftAngle / kart.stats.maxDriftAngle;
+                targetTilt = -normalizedDriftAngle * maxTiltAngle * 1.5f;
+            }
 
             currentTilt = Mathf.Lerp(currentTilt, targetTilt, tiltSpeed * Time.deltaTime);
             kartBody.localRotation = Quaternion.Euler(0f, 0f, currentTilt);
@@ -132,6 +149,8 @@ namespace CatnipCart.Kart
             if (rightDriftSpark) { if (enable) rightDriftSpark.Play(); else rightDriftSpark.Stop(); }
             if (leftDriftTrail) leftDriftTrail.emitting = enable;
             if (rightDriftTrail) rightDriftTrail.emitting = enable;
+            if (leftDriftSmoke) { if (enable) leftDriftSmoke.Play(); else leftDriftSmoke.Stop(); }
+            if (rightDriftSmoke) { if (enable) rightDriftSmoke.Play(); else rightDriftSmoke.Stop(); }
         }
 
         void OnDriftStage(int stage)
