@@ -36,14 +36,14 @@ namespace CatnipCart.Core
         [Header("Drift")]
         [Tooltip("How easily the kart slides sideways during drift (lower = more slide)")]
         [Range(0.1f, 1f)]
-        public float driftStiffness = 0.4f;
+        public float driftStiffness = 0.25f;
 
         [Tooltip("Lateral impulse applied when entering a drift to kick the rear end out")]
-        public float driftEntryKickForce = 6f;
+        public float driftEntryKickForce = 12f;
 
         [Tooltip("How much the rear slides out during drift (simulates rear slip angle)")]
         [Range(0f, 1f)]
-        public float driftRearSlipFactor = 0.65f;
+        public float driftRearSlipFactor = 0.8f;
 
         [Tooltip("How much the player can counter-steer to modulate drift angle (0 = none, 1 = full control)")]
         [Range(0f, 1f)]
@@ -55,15 +55,15 @@ namespace CatnipCart.Core
 
         [Tooltip("Speed loss multiplier during drift from tire scrub (higher = more speed loss)")]
         [Range(0f, 15f)]
-        public float driftDeceleration = 3f;
+        public float driftDeceleration = 5f;
 
         [Tooltip("How quickly the drift angle builds up (higher = snappier entry)")]
         [Range(1f, 20f)]
-        public float driftAngleBuildSpeed = 8f;
+        public float driftAngleBuildSpeed = 12f;
 
         [Tooltip("Maximum drift angle in degrees (controls how sideways the kart can get)")]
         [Range(15f, 60f)]
-        public float maxDriftAngle = 40f;
+        public float maxDriftAngle = 50f;
 
         [Tooltip("Minimum speed to maintain a drift (below this the drift ends)")]
         public float minDriftSpeed = 4f;

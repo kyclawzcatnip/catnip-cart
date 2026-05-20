@@ -181,7 +181,8 @@ namespace CatnipCart.Kart
             float slipSpeed = CurrentSpeed * stats.driftRearSlipFactor * normalizedAngle;
             Vector3 desiredLateral = transform.right * DriftDirection * slipSpeed;
             Vector3 currentLateral = Vector3.Dot(rb.linearVelocity, transform.right) * transform.right;
-            Vector3 lateralCorrection = (desiredLateral - currentLateral) * stats.driftStiffness;
+            // Strong correction force — drives the kart sideways to match desired slip
+            Vector3 lateralCorrection = (desiredLateral - currentLateral) * stats.lateralGrip;
             rb.AddForce(lateralCorrection, ForceMode.Acceleration);
             DriftSlipVelocity = Vector3.Dot(rb.linearVelocity, transform.right);
 
@@ -197,10 +198,8 @@ namespace CatnipCart.Kart
             // The more sideways the kart, the more speed is lost to friction
             rb.AddForce(-transform.forward * stats.driftDeceleration * normalizedAngle, ForceMode.Acceleration);
 
-            // --- Partial lateral grip (not zero — keeps the drift controllable) ---
-            // Use reduced grip based on stiffness, but don't fully cancel lateral velocity
-            float driftGrip = stats.lateralGrip * stats.driftStiffness * (1f - normalizedAngle * 0.5f);
-            ApplyLateralFriction(driftGrip);
+            // No lateral friction during drift — the slip velocity system above is the
+            // sole controller. Applying grip here would cancel out the slide.
 
             ClampSpeed(maxSpd);
         }
