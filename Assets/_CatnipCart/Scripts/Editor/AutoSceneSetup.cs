@@ -30,8 +30,45 @@ namespace CatnipCart.Editor
         }
 
         [MenuItem("Catnip Cart/Create Race Scene")]
-        static void CreateRaceScene()
+        public static void CreateRaceScene()
         {
+            // Create folders if needed
+            if (!AssetDatabase.IsValidFolder("Assets/_CatnipCart"))
+                AssetDatabase.CreateFolder("Assets", "_CatnipCart");
+            if (!AssetDatabase.IsValidFolder("Assets/_CatnipCart/Scenes"))
+                AssetDatabase.CreateFolder("Assets/_CatnipCart", "Scenes");
+            if (!AssetDatabase.IsValidFolder("Assets/_CatnipCart/Materials"))
+                AssetDatabase.CreateFolder("Assets/_CatnipCart", "Materials");
+
+            // 1. Create a dummy Lit material with texture & emission to force variant compilation
+            string dummyLitPath = "Assets/_CatnipCart/Materials/DummyLitRef.mat";
+            Material dummyLit = AssetDatabase.LoadAssetAtPath<Material>(dummyLitPath);
+            if (dummyLit == null)
+            {
+                dummyLit = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                // Assign a dummy 2x2 texture to force texture sampling compilation
+                Texture2D dummyTex = new Texture2D(2, 2);
+                dummyTex.SetPixels(new[] { Color.white, Color.white, Color.white, Color.white });
+                dummyTex.Apply();
+                
+                // Add texture as a sub-asset or just assign it
+                dummyLit.SetTexture("_BaseMap", dummyTex);
+                dummyLit.EnableKeyword("_EMISSION");
+                dummyLit.SetColor("_EmissionColor", Color.white);
+                AssetDatabase.CreateAsset(dummyLit, dummyLitPath);
+            }
+
+            // 2. Create a dummy Skybox material to force Skybox/Panoramic compilation
+            string dummySkyPath = "Assets/_CatnipCart/Materials/DummySkyRef.mat";
+            Material dummySky = AssetDatabase.LoadAssetAtPath<Material>(dummySkyPath);
+            if (dummySky == null)
+            {
+                dummySky = new Material(Shader.Find("Skybox/Panoramic"));
+                Texture2D dummyTex = new Texture2D(2, 2);
+                dummySky.SetTexture("_MainTex", dummyTex);
+                AssetDatabase.CreateAsset(dummySky, dummySkyPath);
+            }
+
             // Create new scene
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -39,24 +76,20 @@ namespace CatnipCart.Editor
             var setupGO = new GameObject("_GameSetup");
             setupGO.AddComponent<Core.SceneSetup>();
 
-            // Create floor for initial grounding (will be replaced by track)
+            // Create floor and assign the dummy Lit material to ensure it is referenced in the scene
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "TempFloor";
             floor.transform.localScale = new Vector3(50, 1, 50);
-            floor.GetComponent<Renderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            floor.GetComponent<Renderer>().material.color = new Color(0.2f, 0.6f, 0.15f);
+            floor.GetComponent<Renderer>().sharedMaterial = dummyLit;
 
-            // Ensure directory exists
-            if (!AssetDatabase.IsValidFolder("Assets/_CatnipCart"))
-                AssetDatabase.CreateFolder("Assets", "_CatnipCart");
-            if (!AssetDatabase.IsValidFolder("Assets/_CatnipCart/Scenes"))
-                AssetDatabase.CreateFolder("Assets/_CatnipCart", "Scenes");
+            // Set skybox in RenderSettings to ensure the panoramic shader is referenced in the scene
+            RenderSettings.skybox = dummySky;
 
             // Save scene
             string scenePath = "Assets/_CatnipCart/Scenes/CatnipGardens.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
 
-            Debug.Log("🏁 Catnip Cart race scene created! Press Play to race! 🐱");
+            Debug.Log("🏁 Catnip Cart race scene created with build-safe shaders! Press Play to race! 🐱");
         }
     }
 }
