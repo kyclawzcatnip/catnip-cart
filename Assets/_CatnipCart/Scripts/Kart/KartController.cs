@@ -206,24 +206,27 @@ namespace CatnipCart.Kart
 
         void EndDrift()
         {
-            // Apply mini-turbo boost based on drift stage
-            if (DriftStage > 0 && DriftStage <= stats.miniTurboForces.Length)
-                ApplyBoost(stats.miniTurboForces[DriftStage - 1], stats.miniTurboDurations[DriftStage - 1]);
+            // Save boost params before resetting state
+            int savedStage = DriftStage;
+            float savedAngle = driftAngleCurrent;
 
             // Angular inertia: carry residual rotation after drift ends
             // This prevents the jarring instant-straighten and makes exits feel smooth
-            float angularVelocity = driftAngleCurrent * stats.driftAngularInertia * 2f;
+            float angularVelocity = savedAngle * stats.driftAngularInertia * 2f;
             driftExitAngularVelocity = angularVelocity;
             driftExitTimer = 0.4f;
 
-            // Blend lateral velocity back toward zero smoothly
-            // (the remaining lateral vel will be eaten by normal-mode grip over ~0.3s)
-
+            // Reset state BEFORE calling ApplyBoost to prevent infinite recursion
+            // (ApplyBoost checks if state is Drifting and calls EndDrift again)
             CurrentState = KartState.Normal;
             DriftStage = 0; DriftTime = 0; DriftDirection = 0;
             DriftAngle = 0; DriftSlipVelocity = 0;
             driftAngleCurrent = 0f;
             OnDriftEnd?.Invoke();
+
+            // Apply mini-turbo boost based on saved drift stage
+            if (savedStage > 0 && savedStage <= stats.miniTurboForces.Length)
+                ApplyBoost(stats.miniTurboForces[savedStage - 1], stats.miniTurboDurations[savedStage - 1]);
         }
 
         void UpdateSpinOut()
