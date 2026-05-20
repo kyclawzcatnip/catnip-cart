@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatnipCart.Core;
 using CatnipCart.Kart;
 
 namespace CatnipCart.Track
@@ -22,9 +23,9 @@ namespace CatnipCart.Track
             GetComponent<BoxCollider>().isTrigger = true;
 
             // Create visual
-            padMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            padMat.color = padColor;
-            padMat.SetFloat("_Smoothness", 0.8f);
+            padMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.BoostArrow(), 0.8f, 0f,
+                padColor * 2f);
 
             var visual = GameObject.CreatePrimitive(PrimitiveType.Quad);
             visual.name = "BoostVisual";

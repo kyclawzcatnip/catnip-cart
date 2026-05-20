@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatnipCart.Core;
 using CatnipCart.Kart;
 
 namespace CatnipCart.Items
@@ -21,9 +22,8 @@ namespace CatnipCart.Items
             visual.transform.localScale = Vector3.one * 0.5f;
             Destroy(visual.GetComponent<Collider>());
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.35f, 0.25f, 0.2f);
-            mat.SetFloat("_Smoothness", 0.1f);
+            var mat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Hairball(), 0.1f);
             visual.GetComponent<Renderer>().material = mat;
 
             // Add some "fur" spikes

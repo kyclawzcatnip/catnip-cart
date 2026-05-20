@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using CatnipCart.Core;
 
 namespace CatnipCart.Track
 {
@@ -144,35 +145,31 @@ namespace CatnipCart.Track
         Material GetRoadMat()
         {
             if (roadMaterial) return roadMaterial;
-            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            m.color = new Color(0.3f, 0.3f, 0.35f);
-            m.SetFloat("_Smoothness", 0.2f);
-            return m;
+            return ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Asphalt(), 0.2f, 0f, null,
+                new Vector2(1f, 10f));
         }
 
         Material GetCurbMat()
         {
             if (curbMaterial) return curbMaterial;
-            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            m.color = new Color(0.9f, 0.2f, 0.2f);
-            return m;
+            return ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.RacingStripes(), 0.3f);
         }
 
         Material GetGrassMat()
         {
             if (grassMaterial) return grassMaterial;
-            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            m.color = new Color(0.2f, 0.65f, 0.15f);
-            m.SetFloat("_Smoothness", 0.1f);
-            return m;
+            return ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Grass(), 0.1f, 0f, null,
+                new Vector2(1f, 10f));
         }
 
         Material GetBarrierMat()
         {
             if (barrierMaterial) return barrierMaterial;
-            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            m.color = new Color(0.85f, 0.85f, 0.9f);
-            return m;
+            return ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Barrier(), 0.4f, 0.2f);
         }
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatnipCart.Core;
 using CatnipCart.Kart;
 
 namespace CatnipCart.Items
@@ -38,10 +39,9 @@ namespace CatnipCart.Items
             cube.transform.localScale = Vector3.one * 1.2f;
             Destroy(cube.GetComponent<Collider>());
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(1f, 0.85f, 0f); // Golden
-            mat.SetFloat("_Smoothness", 0.7f);
-            mat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0f) * 0.5f);
+            var mat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.ItemBoxGold(), 0.7f, 0.3f,
+                new Color(1f, 0.85f, 0f) * 0.5f);
             cube.GetComponent<Renderer>().material = mat;
 
             // Question mark sphere on each face

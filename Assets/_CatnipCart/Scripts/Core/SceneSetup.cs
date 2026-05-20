@@ -57,8 +57,7 @@ namespace CatnipCart.Core
             // === CAMERA ===
             var camGO = new GameObject("RaceCamera");
             var cam = camGO.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.5f, 0.75f, 1f);
+            cam.clearFlags = CameraClearFlags.Skybox;
             cam.fieldOfView = 60f;
             cam.nearClipPlane = 0.3f;
             cam.farClipPlane = 500f;
@@ -258,9 +257,12 @@ namespace CatnipCart.Core
         void PlaceDecorations(TrackSpline spline)
         {
             float totalLen = spline.TotalLength;
-            Material treeMat = MakeMat(new Color(0.15f, 0.5f, 0.1f));
-            Material trunkMat = MakeMat(new Color(0.45f, 0.3f, 0.15f));
-            Material yarnMat = MakeMat(new Color(0.9f, 0.2f, 0.3f));
+            Material treeMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.TreeLeaves(), 0.15f);
+            Material trunkMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.TreeBark(), 0.2f);
+            Material yarnMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Yarn(new Color(0.9f, 0.2f, 0.3f)), 0.3f);
 
             // Trees along the track
             for (int i = 0; i < 30; i++)
@@ -341,6 +343,16 @@ namespace CatnipCart.Core
         {
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.5f, 0.55f, 0.65f);
+
+            // Procedural skybox
+            var skyTex = ProceduralTextureLib.SkyGradient();
+            skyTex.wrapMode = TextureWrapMode.Clamp;
+            var skyMat = new Material(Shader.Find("Skybox/Panoramic"));
+            if (skyMat.shader != null)
+            {
+                skyMat.SetTexture("_MainTex", skyTex);
+                RenderSettings.skybox = skyMat;
+            }
         }
 
         Material MakeMat(Color c)

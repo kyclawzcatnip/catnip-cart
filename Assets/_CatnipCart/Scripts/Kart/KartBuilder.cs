@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatnipCart.Core;
 
 namespace CatnipCart.Kart
 {
@@ -21,12 +22,14 @@ namespace CatnipCart.Kart
 
         void BuildKart()
         {
-            Material primaryMat = MakeMat(primaryColor);
+            Material primaryMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.KartPaint(primaryColor), 0.6f, 0.3f);
             Material secondaryMat = MakeMat(secondaryColor);
-            Material accentMat = MakeMat(accentColor);
+            Material accentMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.KartPaint(accentColor), 0.5f, 0.2f);
             Material darkMat = MakeMat(new Color(0.15f, 0.15f, 0.15f));
-            Material tireMat = MakeMat(new Color(0.2f, 0.2f, 0.2f));
-            tireMat.SetFloat("_Smoothness", 0.1f);
+            Material tireMat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Rubber(), 0.1f);
 
             // === CHASSIS ===
             bodyTransform = new GameObject("KartBody").transform;

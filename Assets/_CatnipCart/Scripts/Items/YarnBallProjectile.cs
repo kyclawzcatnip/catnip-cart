@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatnipCart.Core;
 using CatnipCart.Kart;
 
 namespace CatnipCart.Items
@@ -28,10 +29,10 @@ namespace CatnipCart.Items
             visual.transform.localScale = Vector3.one * 0.6f;
             Destroy(visual.GetComponent<Collider>());
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             Color[] colors = { Color.red, Color.blue, Color.green, new Color(1f, 0.5f, 0f), Color.magenta };
-            mat.color = colors[Random.Range(0, colors.Length)];
-            mat.SetFloat("_Smoothness", 0.6f);
+            Color chosen = colors[Random.Range(0, colors.Length)];
+            var mat = ProceduralTextureLib.MakeLitMaterial(
+                ProceduralTextureLib.Yarn(chosen), 0.4f);
             visual.GetComponent<Renderer>().material = mat;
 
             // Physics
