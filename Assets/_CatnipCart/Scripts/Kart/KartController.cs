@@ -31,6 +31,7 @@ namespace CatnipCart.Kart
         private Vector3 groundNormal = Vector3.up;
         private bool wasGrounded;
         private float driftAngleCurrent;
+        private float driftIntensity; // 0..1 smooth ramp for auto-drift blend
         private float driftExitAngularVelocity;
         private float driftExitTimer;
 
@@ -83,9 +84,8 @@ namespace CatnipCart.Kart
             {
                 case KartState.Normal:
                 case KartState.Boosting:
+                case KartState.Drifting: // Auto-drift is a smooth blend inside UpdateDriving
                     UpdateDriving(); break;
-                case KartState.Drifting:
-                    UpdateDrifting(); break;
                 case KartState.SpinOut:
                     UpdateSpinOut(); break;
                 case KartState.Falling:
@@ -101,127 +101,130 @@ namespace CatnipCart.Kart
         void UpdateDriving()
         {
             currentSteerInput = Mathf.MoveTowards(currentSteerInput, input.Steer, stats.steerInputSmoothing * Time.fixedDeltaTime);
-            if (input.Drift && IsGrounded && Mathf.Abs(currentSteerInput) > 0.3f && CurrentSpeed > 5f) { StartDrift(); return; }
+
+            // --- Auto-drift: smoothly ramp drift intensity based on speed + steer ---
+            float absSteer = Mathf.Abs(currentSteerInput);
+            float speedRatio = Mathf.Clamp01(CurrentSpeed / stats.maxSpeed);
+            bool wantDrift = IsGrounded && absSteer > 0.5f && speedRatio > 0.4f;
+            // Also allow manual drift button as an override
+            if (input.Drift && IsGrounded && absSteer > 0.2f && CurrentSpeed > stats.minDriftSpeed)
+                wantDrift = true;
+
+            float targetIntensity = wantDrift ? Mathf.Clamp01(absSteer * speedRatio * 1.4f) : 0f;
+            float rampSpeed = wantDrift ? 2.5f : 4f; // Ramp in smoothly, ramp out faster
+            driftIntensity = Mathf.Lerp(driftIntensity, targetIntensity, rampSpeed * Time.fixedDeltaTime);
+
+            // Track drift direction — lock when entering, release when intensity drops
+            bool isDrifting = driftIntensity > 0.1f;
+            if (isDrifting && DriftDirection == 0)
+            {
+                DriftDirection = currentSteerInput > 0 ? 1 : -1;
+                CurrentState = KartState.Drifting;
+                OnDriftStart?.Invoke();
+            }
+            else if (!isDrifting && DriftDirection != 0)
+            {
+                EndDrift();
+            }
+
+            // --- Mini-turbo accumulation (only when drifting above 50% intensity) ---
+            if (isDrifting && driftIntensity > 0.5f)
+            {
+                DriftTime += Time.fixedDeltaTime;
+                int ns = 0;
+                for (int i = stats.miniTurboThresholds.Length - 1; i >= 0; i--)
+                    if (DriftTime >= stats.miniTurboThresholds[i]) { ns = i + 1; break; }
+                if (ns != DriftStage) { DriftStage = ns; OnDriftStageChange?.Invoke(DriftStage); }
+            }
+
+            // --- Acceleration / braking ---
             float eMult = IsEntangled ? 0.6f : 1f;
             float maxSpd = stats.maxSpeed * eMult + (boostTimer > 0 ? boostForce : 0);
-            if (input.Accelerate > 0.1f && CurrentSpeed < maxSpd) rb.AddForce(transform.forward * stats.acceleration * input.Accelerate, ForceMode.Acceleration);
-            else if (CurrentSpeed > 0.5f) rb.AddForce(-transform.forward * stats.coastDeceleration, ForceMode.Acceleration);
-            if (input.Brake > 0.1f) { if (CurrentSpeed > 0) rb.AddForce(-transform.forward * stats.brakeForce * input.Brake, ForceMode.Acceleration); else if (CurrentSpeed > -stats.maxReverseSpeed) rb.AddForce(-transform.forward * stats.acceleration * 0.5f * input.Brake, ForceMode.Acceleration); }
-            if (IsGrounded && Mathf.Abs(CurrentSpeed) > 1f) { float s = currentSteerInput * stats.turnSpeed * Time.fixedDeltaTime * (CurrentSpeed < 0 ? -1 : 1); transform.Rotate(0, s, 0, Space.Self); }
-            ApplyLateralFriction(stats.lateralGrip);
+            float accelReduction = 1f - (driftIntensity * 0.3f); // Slight speed cost while sliding
+            if (input.Accelerate > 0.1f && CurrentSpeed < maxSpd)
+                rb.AddForce(transform.forward * stats.acceleration * input.Accelerate * accelReduction, ForceMode.Acceleration);
+            else if (CurrentSpeed > 0.5f)
+                rb.AddForce(-transform.forward * stats.coastDeceleration, ForceMode.Acceleration);
+            if (input.Brake > 0.1f)
+            {
+                if (CurrentSpeed > 0) rb.AddForce(-transform.forward * stats.brakeForce * input.Brake, ForceMode.Acceleration);
+                else if (CurrentSpeed > -stats.maxReverseSpeed) rb.AddForce(-transform.forward * stats.acceleration * 0.5f * input.Brake, ForceMode.Acceleration);
+            }
+
+            // --- Steering: blend between normal grip turn and wider drift turn ---
+            if (IsGrounded && Mathf.Abs(CurrentSpeed) > 1f)
+            {
+                float sign = CurrentSpeed < 0 ? -1f : 1f;
+                float normalTurn = currentSteerInput * stats.turnSpeed;
+                float driftTurn = (DriftDirection != 0 ? DriftDirection : Mathf.Sign(currentSteerInput))
+                    * stats.turnSpeed * stats.driftTurnMultiplier
+                    + currentSteerInput * stats.turnSpeed * 0.4f; // Player can modulate
+                float blendedTurn = Mathf.Lerp(normalTurn, driftTurn, driftIntensity);
+                transform.Rotate(0, blendedTurn * sign * Time.fixedDeltaTime, 0, Space.Self);
+            }
+
+            // --- Lateral physics: blend between full grip and drift slide ---
+            if (isDrifting)
+            {
+                // Drift angle ramps up smoothly with intensity
+                float targetAngle = stats.maxDriftAngle * DriftDirection * driftIntensity;
+                // Counter-steer modulation
+                if ((DriftDirection > 0 && input.Steer < -0.1f) || (DriftDirection < 0 && input.Steer > 0.1f))
+                    targetAngle += input.Steer * stats.driftCounterSteerSensitivity * stats.maxDriftAngle;
+                driftAngleCurrent = Mathf.Lerp(driftAngleCurrent, targetAngle, stats.driftAngleBuildSpeed * Time.fixedDeltaTime);
+                DriftAngle = driftAngleCurrent;
+
+                // Lateral slide proportional to drift intensity (smooth, not snappy)
+                float normalizedAngle = Mathf.Abs(driftAngleCurrent) / stats.maxDriftAngle;
+                float slipSpeed = CurrentSpeed * stats.driftRearSlipFactor * normalizedAngle * driftIntensity;
+                Vector3 desiredLateral = transform.right * DriftDirection * slipSpeed;
+                Vector3 currentLateral = Vector3.Dot(rb.linearVelocity, transform.right) * transform.right;
+                Vector3 lateralCorrection = (desiredLateral - currentLateral) * stats.lateralGrip;
+                rb.AddForce(lateralCorrection, ForceMode.Acceleration);
+                DriftSlipVelocity = Vector3.Dot(rb.linearVelocity, transform.right);
+
+                // Tire scrub deceleration scaled by intensity
+                rb.AddForce(-transform.forward * stats.driftDeceleration * normalizedAngle * driftIntensity, ForceMode.Acceleration);
+
+                // Blend lateral grip: less grip = more slide
+                float gripBlend = Mathf.Lerp(stats.lateralGrip, stats.lateralGrip * 0.15f, driftIntensity);
+                ApplyLateralFriction(gripBlend);
+            }
+            else
+            {
+                // Full grip — normal driving
+                driftAngleCurrent = Mathf.Lerp(driftAngleCurrent, 0f, 6f * Time.fixedDeltaTime);
+                DriftAngle = driftAngleCurrent;
+                ApplyLateralFriction(stats.lateralGrip);
+            }
+
             ClampSpeed(maxSpd);
 
             // Drift exit inertia — carry residual angular momentum after ending a drift
             if (driftExitTimer > 0f)
             {
                 driftExitTimer -= Time.fixedDeltaTime;
-                float inertiaDecay = driftExitTimer / 0.4f; // 0.4s total exit slide
+                float inertiaDecay = driftExitTimer / 0.4f;
                 transform.Rotate(0, driftExitAngularVelocity * inertiaDecay * Time.fixedDeltaTime, 0, Space.Self);
             }
-        }
-
-        void StartDrift()
-        {
-            CurrentState = KartState.Drifting;
-            DriftDirection = currentSteerInput > 0 ? 1 : -1;
-            DriftTime = 0; DriftStage = 0;
-            driftAngleCurrent = 0f;
-
-            // Entry kick: apply a lateral impulse to break rear traction
-            // This is the "snap" that makes drift entry feel punchy — like yanking the handbrake
-            float speedFactor = Mathf.Clamp01(CurrentSpeed / stats.maxSpeed);
-            Vector3 kickDir = transform.right * DriftDirection;
-            rb.AddForce(kickDir * stats.driftEntryKickForce * speedFactor, ForceMode.VelocityChange);
-
-            OnDriftStart?.Invoke();
-        }
-
-        void UpdateDrifting()
-        {
-            // Exit conditions: release drift, leave ground, or speed too low
-            if (!input.Drift || !IsGrounded || CurrentSpeed < stats.minDriftSpeed) { EndDrift(); return; }
-
-            DriftTime += Time.fixedDeltaTime;
-
-            // --- Mini-turbo stage progression ---
-            int ns = 0;
-            for (int i = stats.miniTurboThresholds.Length - 1; i >= 0; i--)
-                if (DriftTime >= stats.miniTurboThresholds[i]) { ns = i + 1; break; }
-            if (ns != DriftStage) { DriftStage = ns; OnDriftStageChange?.Invoke(DriftStage); }
-
-            // --- Drift angle: build up the slip angle over time ---
-            // The drift angle represents how far sideways the rear end has swung out.
-            // Counter-steering reduces it, same-direction steering increases it.
-            float counterSteerEffect = 0f;
-            if (DriftDirection > 0 && input.Steer < -0.1f)
-                counterSteerEffect = input.Steer * stats.driftCounterSteerSensitivity;
-            else if (DriftDirection < 0 && input.Steer > 0.1f)
-                counterSteerEffect = input.Steer * stats.driftCounterSteerSensitivity;
-
-            float targetAngle = stats.maxDriftAngle * DriftDirection;
-            // Counter-steer pulls the target angle back toward center
-            targetAngle += counterSteerEffect * stats.maxDriftAngle;
-
-            driftAngleCurrent = Mathf.MoveTowards(driftAngleCurrent, targetAngle,
-                stats.driftAngleBuildSpeed * stats.maxDriftAngle * Time.fixedDeltaTime);
-            DriftAngle = driftAngleCurrent;
-
-            // --- Rotation: base turn + drift angle contribution ---
-            // The kart rotates from the locked drift direction plus player modulation
-            float baseTurn = DriftDirection * stats.turnSpeed * stats.driftTurnMultiplier;
-            float playerModulation = input.Steer * stats.turnSpeed * 0.5f;
-            float driftAngleSteer = (driftAngleCurrent / stats.maxDriftAngle) * stats.turnSpeed * 0.3f;
-            float totalRotation = (baseTurn + playerModulation + driftAngleSteer) * Time.fixedDeltaTime;
-            transform.Rotate(0, totalRotation, 0, Space.Self);
-
-            // --- Lateral velocity: simulate the rear end sliding ---
-            // Instead of just reducing grip, we actively inject lateral velocity
-            // proportional to the drift angle. This creates the actual sideways slide.
-            float normalizedAngle = Mathf.Abs(driftAngleCurrent) / stats.maxDriftAngle;
-            float slipSpeed = CurrentSpeed * stats.driftRearSlipFactor * normalizedAngle;
-            Vector3 desiredLateral = transform.right * DriftDirection * slipSpeed;
-            Vector3 currentLateral = Vector3.Dot(rb.linearVelocity, transform.right) * transform.right;
-            // Strong correction force — drives the kart sideways to match desired slip
-            Vector3 lateralCorrection = (desiredLateral - currentLateral) * stats.lateralGrip;
-            rb.AddForce(lateralCorrection, ForceMode.Acceleration);
-            DriftSlipVelocity = Vector3.Dot(rb.linearVelocity, transform.right);
-
-            // --- Forward acceleration (reduced during drift — tire scrub) ---
-            float eMult = IsEntangled ? 0.6f : 1f;
-            float maxSpd = stats.maxSpeed * eMult + (boostTimer > 0 ? boostForce : 0);
-            // Acceleration is reduced proportionally to how sideways we are
-            float accelReduction = 1f - (normalizedAngle * 0.35f);
-            if (input.Accelerate > 0.1f && CurrentSpeed < maxSpd)
-                rb.AddForce(transform.forward * stats.acceleration * input.Accelerate * accelReduction * 0.8f, ForceMode.Acceleration);
-
-            // --- Tire scrub deceleration: drifting costs speed ---
-            // The more sideways the kart, the more speed is lost to friction
-            rb.AddForce(-transform.forward * stats.driftDeceleration * normalizedAngle, ForceMode.Acceleration);
-
-            // No lateral friction during drift — the slip velocity system above is the
-            // sole controller. Applying grip here would cancel out the slide.
-
-            ClampSpeed(maxSpd);
         }
 
         void EndDrift()
         {
             // Save boost params before resetting state
             int savedStage = DriftStage;
-            float savedAngle = driftAngleCurrent;
 
             // Angular inertia: carry residual rotation after drift ends
-            // This prevents the jarring instant-straighten and makes exits feel smooth
-            float angularVelocity = savedAngle * stats.driftAngularInertia * 2f;
+            // Scaled by how intense the drift was for smooth exits
+            float angularVelocity = driftAngleCurrent * stats.driftAngularInertia * 1.5f;
             driftExitAngularVelocity = angularVelocity;
-            driftExitTimer = 0.4f;
+            driftExitTimer = 0.35f;
 
             // Reset state BEFORE calling ApplyBoost to prevent infinite recursion
-            // (ApplyBoost checks if state is Drifting and calls EndDrift again)
             CurrentState = KartState.Normal;
             DriftStage = 0; DriftTime = 0; DriftDirection = 0;
-            DriftAngle = 0; DriftSlipVelocity = 0;
-            driftAngleCurrent = 0f;
+            DriftSlipVelocity = 0;
+            // Don't snap driftAngleCurrent to 0 — let it decay smoothly in UpdateDriving
             OnDriftEnd?.Invoke();
 
             // Apply mini-turbo boost based on saved drift stage
