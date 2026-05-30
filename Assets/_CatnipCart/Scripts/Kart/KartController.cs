@@ -260,8 +260,18 @@ namespace CatnipCart.Kart
         public void ApplyBoost(float force, float duration)
         {
             boostForce = force; boostTimer = duration;
-            if (CurrentState == KartState.Drifting) EndDrift();
-            if (CurrentState == KartState.Normal) CurrentState = KartState.Boosting;
+
+            // If drifting, reset drift state directly (do NOT call EndDrift —
+            // EndDrift calls ApplyBoost for mini-turbo, causing infinite recursion).
+            // The external boost replaces the mini-turbo anyway.
+            if (CurrentState == KartState.Drifting)
+            {
+                DriftStage = 0; DriftTime = 0; DriftDirection = 0;
+                DriftSlipVelocity = 0; driftIntensity = 0f;
+                OnDriftEnd?.Invoke();
+            }
+
+            CurrentState = KartState.Boosting;
             rb.AddForce(transform.forward * force * 2f, ForceMode.VelocityChange);
             OnBoostStart?.Invoke(duration);
         }
