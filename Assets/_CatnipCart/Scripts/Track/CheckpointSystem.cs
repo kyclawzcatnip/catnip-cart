@@ -5,6 +5,8 @@ namespace CatnipCart.Track
 {
     /// <summary>
     /// Checkpoint system for tracking racer progress, lap counting, and positions.
+    /// Uses a forgiving checkpoint system that allows skipping up to 1 checkpoint
+    /// and requires visiting enough checkpoints before counting a lap.
     /// </summary>
     public class CheckpointSystem : MonoBehaviour
     {
@@ -12,8 +14,13 @@ namespace CatnipCart.Track
         public TrackSpline spline;
         public int checkpointCount = 16;
         public int totalLaps = 3;
-        public float checkpointWidth = 15f;
-        public float checkpointHeight = 5f;
+        public float checkpointWidth = 18f;
+        public float checkpointHeight = 8f;
+
+        // How many checkpoints can be skipped and still count
+        private const int MAX_SKIP = 1;
+        // Minimum fraction of checkpoints that must be hit before a lap counts
+        private const float MIN_CHECKPOINT_FRACTION = 0.5f;
 
         // Racer tracking
         public class RacerProgress
@@ -25,6 +32,8 @@ namespace CatnipCart.Track
             public bool finished;
             public float finishTime;
             public int position; // 1st, 2nd, etc.
+            public int checkpointsHitThisLap; // How many unique checkpoints hit this lap
+            public HashSet<int> visitedThisLap = new HashSet<int>(); // Track which ones
 
             public float TotalProgress => (currentLap * 1000f) + currentCheckpoint + (distanceAlongTrack / 1000f);
         }
@@ -55,7 +64,7 @@ namespace CatnipCart.Track
                 checkpointPositions.Add(pos);
                 checkpointForwards.Add(fwd);
 
-                // Create trigger collider
+                // Create trigger collider — thicker depth (4m) so fast karts can't skip through
                 var cpGO = new GameObject($"Checkpoint_{i}");
                 cpGO.transform.SetParent(transform, false);
                 cpGO.transform.position = pos + Vector3.up * checkpointHeight * 0.5f;
@@ -64,7 +73,7 @@ namespace CatnipCart.Track
 
                 var box = cpGO.AddComponent<BoxCollider>();
                 box.isTrigger = true;
-                box.size = new Vector3(checkpointWidth, checkpointHeight, 2f);
+                box.size = new Vector3(checkpointWidth, checkpointHeight, 4f);
 
                 var handler = cpGO.AddComponent<CheckpointTrigger>();
                 handler.system = this;
@@ -74,14 +83,26 @@ namespace CatnipCart.Track
 
         public void RegisterRacer(Transform racer)
         {
+            // Start at checkpoint (checkpointCount - 1) so that the FIRST
+            // checkpoint they naturally hit (checkpoint 0 or 1) is accepted.
             racers.Add(new RacerProgress
             {
                 racer = racer,
-                currentCheckpoint = 0,
+                currentCheckpoint = checkpointCount - 1,
                 currentLap = 0,
                 distanceAlongTrack = 0,
-                finished = false
+                finished = false,
+                checkpointsHitThisLap = 0
             });
+        }
+
+        /// <summary>
+        /// Calculate how far ahead cpIndex is from currentCheckpoint in the circular sequence.
+        /// Returns 0 if same, 1 if next, 2 if two ahead, etc.
+        /// </summary>
+        int CircularDistance(int from, int to)
+        {
+            return ((to - from) % checkpointCount + checkpointCount) % checkpointCount;
         }
 
         public void OnCheckpointHit(Transform racer, int cpIndex)
@@ -90,24 +111,45 @@ namespace CatnipCart.Track
             if (progress == null || progress.finished) return;
 
             int expected = (progress.currentCheckpoint + 1) % checkpointCount;
+            int dist = CircularDistance(progress.currentCheckpoint, cpIndex);
 
-            // Only count if hitting the next expected checkpoint (anti-cheat)
-            if (cpIndex == expected)
+            // Accept the checkpoint if it's within skip tolerance (1 = next, 2 = skipped one)
+            // dist == 0 means re-hitting current checkpoint — ignore
+            if (dist >= 1 && dist <= (1 + MAX_SKIP))
             {
                 progress.currentCheckpoint = cpIndex;
 
-                // Crossed start line = new lap
-                if (cpIndex == 0 && progress.currentLap >= 0)
+                // Track unique checkpoint visits this lap
+                if (!progress.visitedThisLap.Contains(cpIndex))
                 {
-                    progress.currentLap++;
-                    OnLapComplete?.Invoke(progress);
+                    progress.visitedThisLap.Add(cpIndex);
+                    progress.checkpointsHitThisLap++;
+                }
 
-                    if (progress.currentLap >= totalLaps)
+                // Crossed start/finish line (checkpoint 0)?
+                if (cpIndex == 0)
+                {
+                    int minRequired = Mathf.CeilToInt(checkpointCount * MIN_CHECKPOINT_FRACTION);
+
+                    // Only count the lap if we've actually gone around the track
+                    if (progress.checkpointsHitThisLap >= minRequired)
                     {
-                        progress.finished = true;
-                        progress.finishTime = Time.time;
-                        OnRaceFinish?.Invoke(progress);
+                        progress.currentLap++;
+                        Debug.Log($"[Lap] {racer.name} completed lap {progress.currentLap}/{totalLaps} " +
+                                  $"(checkpoints hit: {progress.checkpointsHitThisLap}/{checkpointCount})");
+                        OnLapComplete?.Invoke(progress);
+
+                        if (progress.currentLap >= totalLaps)
+                        {
+                            progress.finished = true;
+                            progress.finishTime = Time.time;
+                            OnRaceFinish?.Invoke(progress);
+                        }
                     }
+
+                    // Reset checkpoint tracking for the new lap
+                    progress.visitedThisLap.Clear();
+                    progress.checkpointsHitThisLap = 0;
                 }
             }
         }
@@ -138,14 +180,40 @@ namespace CatnipCart.Track
     {
         [HideInInspector] public CheckpointSystem system;
         [HideInInspector] public int checkpointIndex;
+        private HashSet<int> recentHits = new HashSet<int>();
 
         void OnTriggerEnter(Collider other)
         {
-            // Check if this is a kart
+            HandleTrigger(other);
+        }
+
+        // Also use OnTriggerStay as a fallback — if a kart was already
+        // overlapping when the collider was created, OnTriggerEnter won't fire.
+        void OnTriggerStay(Collider other)
+        {
+            HandleTrigger(other);
+        }
+
+        void HandleTrigger(Collider other)
+        {
             var kart = other.GetComponentInParent<Kart.KartController>();
             if (kart != null)
             {
-                system.OnCheckpointHit(kart.transform, checkpointIndex);
+                int kartId = kart.GetInstanceID();
+                if (!recentHits.Contains(kartId))
+                {
+                    recentHits.Add(kartId);
+                    system.OnCheckpointHit(kart.transform, checkpointIndex);
+                }
+            }
+        }
+
+        void OnTriggerExit(Collider other)
+        {
+            var kart = other.GetComponentInParent<Kart.KartController>();
+            if (kart != null)
+            {
+                recentHits.Remove(kart.GetInstanceID());
             }
         }
     }

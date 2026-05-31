@@ -26,7 +26,7 @@ namespace CatnipCart.Track
             CalculateLengths();
         }
 
-        void CalculateLengths()
+        public void CalculateLengths()
         {
             if (waypoints.Count < 2) return;
             int segCount = isClosed ? waypoints.Count : waypoints.Count - 1;
@@ -54,6 +54,9 @@ namespace CatnipCart.Track
         public Vector3 GetPointAtDistance(float dist)
         {
             if (waypoints.Count < 2) return Vector3.zero;
+            // Lazy recalculation if lengths weren't computed yet
+            if (segmentLengths == null || segmentLengths.Length == 0)
+                CalculateLengths();
             if (isClosed) dist = Mathf.Repeat(dist, TotalLength);
             else dist = Mathf.Clamp(dist, 0, TotalLength);
 
@@ -82,6 +85,8 @@ namespace CatnipCart.Track
         /// <summary>Find the nearest point on the spline to a world position.</summary>
         public float GetNearestDistance(Vector3 worldPos)
         {
+            if (segmentLengths == null || segmentLengths.Length == 0)
+                CalculateLengths();
             float bestDist = float.MaxValue;
             float bestT = 0;
             int samples = Mathf.CeilToInt(TotalLength / 2f);

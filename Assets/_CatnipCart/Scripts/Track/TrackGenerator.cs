@@ -7,6 +7,7 @@ namespace CatnipCart.Track
     /// <summary>
     /// Generates the track mesh along the TrackSpline.
     /// Creates road surface, curbs, grass borders, and barrier colliders.
+    /// Supports per-track color theming via the trackXxxColor fields.
     /// </summary>
     [RequireComponent(typeof(TrackSpline))]
     public class TrackGenerator : MonoBehaviour
@@ -25,6 +26,12 @@ namespace CatnipCart.Track
 
         [Header("Barriers")]
         public float barrierHeight = 2f;
+
+        [Header("Track Theme Colors (set by SceneSetup)")]
+        public Color trackRoadColor = Color.clear;
+        public Color trackCurbColor = Color.clear;
+        public Color trackGrassColor = Color.clear;
+        public Color trackBarrierColor = Color.clear;
 
         private TrackSpline spline;
 
@@ -142,34 +149,50 @@ namespace CatnipCart.Track
             Destroy(visual.GetComponent<Collider>());
         }
 
+        // ---------------------------------------------------------------
+        //  MATERIAL GETTERS — tinted by track theme colors when set
+        // ---------------------------------------------------------------
+
         Material GetRoadMat()
         {
             if (roadMaterial) return roadMaterial;
-            return ProceduralTextureLib.MakeLitMaterial(
+            var mat = ProceduralTextureLib.MakeLitMaterial(
                 ProceduralTextureLib.Asphalt(), 0.2f, 0f, null,
                 new Vector2(1f, 10f));
+            if (trackRoadColor != Color.clear)
+                mat.color = trackRoadColor;
+            return mat;
         }
 
         Material GetCurbMat()
         {
             if (curbMaterial) return curbMaterial;
-            return ProceduralTextureLib.MakeLitMaterial(
+            var mat = ProceduralTextureLib.MakeLitMaterial(
                 ProceduralTextureLib.RacingStripes(), 0.3f);
+            if (trackCurbColor != Color.clear)
+                mat.color = trackCurbColor;
+            return mat;
         }
 
         Material GetGrassMat()
         {
             if (grassMaterial) return grassMaterial;
-            return ProceduralTextureLib.MakeLitMaterial(
+            var mat = ProceduralTextureLib.MakeLitMaterial(
                 ProceduralTextureLib.Grass(), 0.1f, 0f, null,
                 new Vector2(1f, 10f));
+            if (trackGrassColor != Color.clear)
+                mat.color = trackGrassColor;
+            return mat;
         }
 
         Material GetBarrierMat()
         {
             if (barrierMaterial) return barrierMaterial;
-            return ProceduralTextureLib.MakeLitMaterial(
+            var mat = ProceduralTextureLib.MakeLitMaterial(
                 ProceduralTextureLib.Barrier(), 0.4f, 0.2f);
+            if (trackBarrierColor != Color.clear)
+                mat.color = trackBarrierColor;
+            return mat;
         }
     }
 }
