@@ -965,8 +965,11 @@ namespace CatnipCart.Core
             var skyTex = ProceduralTextureLib.SkyGradient(
                 trackData.skyZenith, trackData.skyHorizon, trackData.skySunGlow);
             skyTex.wrapMode = TextureWrapMode.Clamp;
-            var skyMat = new Material(Shader.Find("Skybox/Panoramic"));
-            if (skyMat.shader != null)
+            var skyShader = Shader.Find("Skybox/Panoramic");
+            if (skyShader == null) skyShader = Shader.Find("Skybox/6 Sided");
+            if (skyShader == null) skyShader = ProceduralTextureLib.FindLitShader();
+            var skyMat = new Material(skyShader);
+            if (skyMat != null)
             {
                 skyMat.SetTexture("_MainTex", skyTex);
                 RenderSettings.skybox = skyMat;
@@ -990,7 +993,7 @@ namespace CatnipCart.Core
 
         Material MakeMat(Color c)
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            var mat = new Material(ProceduralTextureLib.FindLitShader());
             mat.color = c;
             return mat;
         }

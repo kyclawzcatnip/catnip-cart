@@ -61,7 +61,7 @@ namespace CatnipCart.Items
                 qmark.transform.localPosition = dir * 0.55f;
                 qmark.transform.localScale = Vector3.one * 0.25f;
 
-                var qMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                var qMat = new Material(ProceduralTextureLib.FindLitShader());
                 qMat.color = new Color(0.9f, 0.2f, 0.2f);
                 qmark.GetComponent<Renderer>().material = qMat;
             }

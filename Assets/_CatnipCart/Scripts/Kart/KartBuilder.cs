@@ -140,9 +140,12 @@ namespace CatnipCart.Kart
 
         Material MakeMat(Color c)
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            var mat = new Material(ProceduralTextureLib.FindLitShader());
             mat.color = c;
-            mat.SetFloat("_Smoothness", 0.4f);
+            if (mat.HasProperty("_Smoothness"))
+                mat.SetFloat("_Smoothness", 0.4f);
+            if (mat.HasProperty("_Glossiness"))
+                mat.SetFloat("_Glossiness", 0.4f);
             return mat;
         }
     }

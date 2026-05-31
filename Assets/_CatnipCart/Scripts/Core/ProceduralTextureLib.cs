@@ -113,26 +113,65 @@ namespace CatnipCart.Core
         //  MATERIAL HELPER
         // ------------------------------------------------------------------ 
 
+        /// <summary>
+        /// Finds a lit shader with fallbacks for WebGL and builds where
+        /// Unity's shader stripping may remove URP/Lit.
+        /// </summary>
+        public static Shader FindLitShader()
+        {
+            // Try URP Lit first (preferred)
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader != null) return shader;
+            // Fallback: Built-in Standard
+            shader = Shader.Find("Standard");
+            if (shader != null) return shader;
+            // Fallback: Unlit with texture support
+            shader = Shader.Find("Unlit/Texture");
+            if (shader != null) return shader;
+            // Last resort
+            shader = Shader.Find("Sprites/Default");
+            if (shader != null) return shader;
+            // Absolute last resort — grab whatever is available
+            return Shader.Find("Hidden/InternalErrorShader");
+        }
+
         public static Material MakeLitMaterial(Texture2D tex, float smoothness = 0.3f,
             float metallic = 0f, Color? emission = null, Vector2? tiling = null)
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.SetTexture("_BaseMap", tex);
+            var shader = FindLitShader();
+            var mat = new Material(shader);
+            
+            // Set texture — property name depends on shader
+            if (mat.HasProperty("_BaseMap"))
+                mat.SetTexture("_BaseMap", tex);
+            else if (mat.HasProperty("_MainTex"))
+                mat.SetTexture("_MainTex", tex);
+
             mat.color = Color.white; // tint white so texture shows true color
-            mat.SetFloat("_Smoothness", smoothness);
-            mat.SetFloat("_Metallic", metallic);
+
+            if (mat.HasProperty("_Smoothness"))
+                mat.SetFloat("_Smoothness", smoothness);
+            if (mat.HasProperty("_Metallic"))
+                mat.SetFloat("_Metallic", metallic);
+            // Standard shader uses _Glossiness instead of _Smoothness
+            if (mat.HasProperty("_Glossiness"))
+                mat.SetFloat("_Glossiness", smoothness);
 
             if (tiling.HasValue)
             {
-                mat.SetTextureScale("_BaseMap", tiling.Value);
+                if (mat.HasProperty("_BaseMap"))
+                    mat.SetTextureScale("_BaseMap", tiling.Value);
+                else if (mat.HasProperty("_MainTex"))
+                    mat.SetTextureScale("_MainTex", tiling.Value);
             }
 
             if (emission.HasValue)
             {
                 mat.EnableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", emission.Value);
-                // Also set emission map to the base texture for glow
-                mat.SetTexture("_EmissionMap", tex);
+                if (mat.HasProperty("_EmissionColor"))
+                    mat.SetColor("_EmissionColor", emission.Value);
+                if (mat.HasProperty("_EmissionMap"))
+                    mat.SetTexture("_EmissionMap", tex);
             }
 
             tex.wrapMode = TextureWrapMode.Repeat;

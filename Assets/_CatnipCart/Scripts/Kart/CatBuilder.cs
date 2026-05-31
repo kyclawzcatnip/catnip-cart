@@ -190,10 +190,13 @@ namespace CatnipCart.Kart
 
         Material MakeMat(Color c)
         {
-            // Use URP Lit shader
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            // Use FindLitShader for WebGL fallback support
+            var mat = new Material(ProceduralTextureLib.FindLitShader());
             mat.color = c;
-            mat.SetFloat("_Smoothness", 0.3f);
+            if (mat.HasProperty("_Smoothness"))
+                mat.SetFloat("_Smoothness", 0.3f);
+            if (mat.HasProperty("_Glossiness"))
+                mat.SetFloat("_Glossiness", 0.3f);
             return mat;
         }
 
