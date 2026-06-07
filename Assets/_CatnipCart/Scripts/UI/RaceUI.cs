@@ -222,7 +222,7 @@ namespace CatnipCart.UI
             };
 
             string celebrate = progress.position <= 3 ? "\n\nGreat job! 🐱" : "\n\nBetter luck next time!";
-            resultsText.text = $"FINISH!\n\n{place}{celebrate}\n\nPress R to restart  |  ESC for track select";
+            resultsText.text = $"FINISH!\n\n{place}{celebrate}\n\nPress R to restart  |  M for track select";
         }
     }
 }

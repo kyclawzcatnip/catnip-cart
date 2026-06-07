@@ -24,7 +24,17 @@ namespace CatnipCart.Core
         /// Static index so it persists across scene reloads.
         /// -1 = show track selection menu, 0+ = load that track.
         /// </summary>
-        public static int SelectedTrackIndex = -1;
+        public static int SelectedTrackIndex = 0;
+
+        /// <summary>
+        /// Resets track selection on every fresh play/launch.
+        /// Without this, the static field persists between Editor play sessions.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticState()
+        {
+            SelectedTrackIndex = 0;
+        }
 
         void Awake()
         {
@@ -35,6 +45,7 @@ namespace CatnipCart.Core
             }
             else
             {
+                // Load the selected track (defaults to Catnip Gardens)
                 var allTracks = TrackData.GetAllTracks();
                 int idx = Mathf.Clamp(SelectedTrackIndex, 0, allTracks.Length - 1);
                 BuildScene(allTracks[idx]);
@@ -999,7 +1010,7 @@ namespace CatnipCart.Core
         }
     }
 
-    /// <summary>Simple restart handler. Also returns to track select on Escape.</summary>
+    /// <summary>Restart handler. Press R to restart, M to open track select menu.</summary>
     public class RestartHandler : MonoBehaviour
     {
         void Update()
@@ -1009,9 +1020,9 @@ namespace CatnipCart.Core
                 UnityEngine.SceneManagement.SceneManager.LoadScene(
                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
             }
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape))
             {
-                // Return to track selection
+                // Open track selection menu
                 SceneSetup.SelectedTrackIndex = -1;
                 UnityEngine.SceneManagement.SceneManager.LoadScene(
                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
