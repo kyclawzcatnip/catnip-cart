@@ -26,16 +26,6 @@ namespace CatnipCart.Core
         /// </summary>
         public static int SelectedTrackIndex = 0;
 
-        /// <summary>
-        /// Resets track selection on every fresh play/launch.
-        /// Without this, the static field persists between Editor play sessions.
-        /// </summary>
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStaticState()
-        {
-            SelectedTrackIndex = 0;
-        }
-
         void Awake()
         {
             // Always load a track — use M/N to cycle tracks during gameplay
