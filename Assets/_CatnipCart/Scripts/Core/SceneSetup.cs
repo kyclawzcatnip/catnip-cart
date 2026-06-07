@@ -51,19 +51,38 @@ namespace CatnipCart.Core
             if (_trackBannerTimer > 0f)
                 _trackBannerTimer -= Time.unscaledDeltaTime;
 
-            if (Input.GetKeyDown(KeyCode.M))
+            // Use Input.inputString for WebGL reliability (GetKeyDown can miss keys in browsers)
+            string typed = Input.inputString.ToLower();
+
+            // M = next track
+            if (typed.Contains("m"))
             {
                 SelectedTrackIndex = (SelectedTrackIndex + 1) % _totalTracks;
                 ReloadScene();
+                return;
             }
-            else if (Input.GetKeyDown(KeyCode.N))
+            // N = previous track
+            if (typed.Contains("n"))
             {
                 SelectedTrackIndex = (SelectedTrackIndex - 1 + _totalTracks) % _totalTracks;
                 ReloadScene();
+                return;
             }
-            else if (Input.GetKeyDown(KeyCode.R))
+            // R = restart current track
+            if (typed.Contains("r"))
             {
                 ReloadScene();
+                return;
+            }
+            // Number keys 1-8 = direct track selection
+            for (int i = 1; i <= _totalTracks && i <= 8; i++)
+            {
+                if (typed.Contains(i.ToString()))
+                {
+                    SelectedTrackIndex = i - 1;
+                    ReloadScene();
+                    return;
+                }
             }
         }
 
@@ -78,8 +97,8 @@ namespace CatnipCart.Core
         {
             // Always show a small hint in the corner
             GUI.color = new Color(1, 1, 1, 0.5f);
-            GUI.Label(new Rect(10, Screen.height - 30, 400, 25),
-                "M=Next Track | N=Prev | R=Restart");
+            GUI.Label(new Rect(10, Screen.height - 30, 500, 25),
+                "M/N = Next/Prev Track | 1-8 = Pick Track | R = Restart");
 
             // Show track name banner on load
             if (_trackBannerTimer > 0f)
