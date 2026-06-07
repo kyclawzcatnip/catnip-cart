@@ -38,18 +38,11 @@ namespace CatnipCart.Core
 
         void Awake()
         {
-            if (SelectedTrackIndex < 0)
-            {
-                // Show track selection menu
-                ShowTrackSelect();
-            }
-            else
-            {
-                // Load the selected track (defaults to Catnip Gardens)
-                var allTracks = TrackData.GetAllTracks();
-                int idx = Mathf.Clamp(SelectedTrackIndex, 0, allTracks.Length - 1);
-                BuildScene(allTracks[idx]);
-            }
+            // Always load a track — use M/N to cycle tracks during gameplay
+            if (SelectedTrackIndex < 0) SelectedTrackIndex = 0;
+            var allTracks = TrackData.GetAllTracks();
+            int idx = Mathf.Clamp(SelectedTrackIndex, 0, allTracks.Length - 1);
+            BuildScene(allTracks[idx]);
         }
 
         void ShowTrackSelect()
@@ -1010,22 +1003,98 @@ namespace CatnipCart.Core
         }
     }
 
-    /// <summary>Restart handler. Press R to restart, M to open track select menu.</summary>
+    /// <summary>
+    /// Restart handler with track cycling.
+    /// R = restart current track, M = next track, N = previous track.
+    /// Shows current track name on screen via OnGUI (works in WebGL).
+    /// </summary>
     public class RestartHandler : MonoBehaviour
     {
+        private float trackNameShowTimer = 3f; // Show track name for 3s on load
+        private string currentTrackName = "";
+        private string currentTrackEmoji = "";
+        private int totalTracks = 1;
+        private GUIStyle labelStyle;
+        private GUIStyle hintStyle;
+
+        void Start()
+        {
+            var allTracks = TrackData.GetAllTracks();
+            totalTracks = allTracks.Length;
+            int idx = Mathf.Clamp(SceneSetup.SelectedTrackIndex, 0, totalTracks - 1);
+            currentTrackName = allTracks[idx].trackName;
+            currentTrackEmoji = allTracks[idx].trackEmoji;
+            trackNameShowTimer = 4f;
+        }
+
         void Update()
         {
+            if (trackNameShowTimer > 0)
+                trackNameShowTimer -= Time.deltaTime;
+
             if (Input.GetKeyDown(KeyCode.R))
             {
                 UnityEngine.SceneManagement.SceneManager.LoadScene(
                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
             }
-            if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.M))
             {
-                // Open track selection menu
-                SceneSetup.SelectedTrackIndex = -1;
+                // Next track
+                SceneSetup.SelectedTrackIndex = (SceneSetup.SelectedTrackIndex + 1) % totalTracks;
                 UnityEngine.SceneManagement.SceneManager.LoadScene(
                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+            }
+            if (Input.GetKeyDown(KeyCode.N))
+            {
+                // Previous track
+                SceneSetup.SelectedTrackIndex = (SceneSetup.SelectedTrackIndex - 1 + totalTracks) % totalTracks;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(
+                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+            }
+        }
+
+        void OnGUI()
+        {
+            // Build styles once
+            if (labelStyle == null)
+            {
+                labelStyle = new GUIStyle(GUI.skin.label);
+                labelStyle.fontSize = 36;
+                labelStyle.fontStyle = FontStyle.Bold;
+                labelStyle.alignment = TextAnchor.MiddleCenter;
+                labelStyle.normal.textColor = Color.white;
+
+                hintStyle = new GUIStyle(GUI.skin.label);
+                hintStyle.fontSize = 18;
+                hintStyle.alignment = TextAnchor.MiddleCenter;
+                hintStyle.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
+            }
+
+            // Show track name banner on load (fades out after a few seconds)
+            if (trackNameShowTimer > 0f)
+            {
+                float alpha = Mathf.Clamp01(trackNameShowTimer / 1f); // Fade in last second
+                Color c = new Color(0, 0, 0, 0.6f * alpha);
+                Color textCol = new Color(1, 1, 1, alpha);
+                Color hintCol = new Color(1, 1, 1, 0.7f * alpha);
+
+                // Dark banner background
+                Rect bannerRect = new Rect(0, 20, Screen.width, 100);
+                GUI.color = c;
+                GUI.DrawTexture(bannerRect, Texture2D.whiteTexture);
+
+                // Track name
+                GUI.color = textCol;
+                labelStyle.normal.textColor = textCol;
+                string trackLabel = $"{currentTrackEmoji}  {currentTrackName}  {currentTrackEmoji}   ({SceneSetup.SelectedTrackIndex + 1}/{totalTracks})";
+                GUI.Label(new Rect(0, 30, Screen.width, 50), trackLabel, labelStyle);
+
+                // Hint
+                GUI.color = hintCol;
+                hintStyle.normal.textColor = hintCol;
+                GUI.Label(new Rect(0, 75, Screen.width, 30), "M = Next Track  |  N = Prev Track  |  R = Restart", hintStyle);
+
+                GUI.color = Color.white; // Reset
             }
         }
     }
