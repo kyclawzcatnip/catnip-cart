@@ -21,76 +21,58 @@ namespace CatnipCart.Core
         public int totalLaps = 3;
 
         /// <summary>
-        /// Static index so it persists across scene reloads.
-        /// -1 = show track selection menu, 0+ = load that track.
+        /// Track index backed by PlayerPrefs so it survives scene reloads in WebGL.
         /// </summary>
-        public static int SelectedTrackIndex = 0;
+        public static int SelectedTrackIndex
+        {
+            get { return PlayerPrefs.GetInt("SelectedTrack", 0); }
+            set { PlayerPrefs.SetInt("SelectedTrack", value); PlayerPrefs.Save(); }
+        }
+
+        private string _currentTrackName = "";
+        private int _totalTracks = 8;
+        private float _trackBannerTimer = 0f;
 
         void Awake()
         {
-            // Always load a track — use M/N to cycle tracks during gameplay
-            if (SelectedTrackIndex < 0) SelectedTrackIndex = 0;
             var allTracks = TrackData.GetAllTracks();
-            int idx = Mathf.Clamp(SelectedTrackIndex, 0, allTracks.Length - 1);
-            _currentTrackName = allTracks[idx].trackName;
             _totalTracks = allTracks.Length;
+            int idx = Mathf.Clamp(SelectedTrackIndex, 0, _totalTracks - 1);
+            _currentTrackName = allTracks[idx].trackName;
             _trackBannerTimer = 4f;
             BuildScene(allTracks[idx]);
         }
 
-        // --- Track switching (M/N/R keys) handled here for reliability ---
-        private static string _currentTrackName = "";
-        private static int _totalTracks = 8;
-        private float _trackBannerTimer = 0f;
-        private bool _reloading = false;
-
         void Update()
         {
-            if (_reloading) return;
-
             if (_trackBannerTimer > 0f)
                 _trackBannerTimer -= Time.unscaledDeltaTime;
 
-            // Use Input.inputString for WebGL reliability (GetKeyDown can miss keys in browsers)
-            string typed = Input.inputString.ToLower();
-
-            // M = next track
-            if (typed.Contains("m"))
+            // Track switching keys
+            if (Input.GetKeyDown(KeyCode.M))
             {
                 SelectedTrackIndex = (SelectedTrackIndex + 1) % _totalTracks;
-                ReloadScene();
-                return;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
             }
-            // N = previous track
-            if (typed.Contains("n"))
+            else if (Input.GetKeyDown(KeyCode.N))
             {
                 SelectedTrackIndex = (SelectedTrackIndex - 1 + _totalTracks) % _totalTracks;
-                ReloadScene();
-                return;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
             }
-            // R = restart current track
-            if (typed.Contains("r"))
+            else if (Input.GetKeyDown(KeyCode.R))
             {
-                ReloadScene();
-                return;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
             }
-            // Number keys 1-8 = direct track selection
-            for (int i = 1; i <= _totalTracks && i <= 8; i++)
+            // Number keys 1-8 for direct track pick
+            for (int i = 0; i < _totalTracks && i < 8; i++)
             {
-                if (typed.Contains(i.ToString()))
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
                 {
-                    SelectedTrackIndex = i - 1;
-                    ReloadScene();
-                    return;
+                    SelectedTrackIndex = i;
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+                    break;
                 }
             }
-        }
-
-        void ReloadScene()
-        {
-            _reloading = true;
-            UnityEngine.SceneManagement.SceneManager.LoadScene(
-                UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
         }
 
         void OnGUI()
@@ -1090,99 +1072,10 @@ namespace CatnipCart.Core
         }
     }
 
-    /// <summary>
-    /// Restart handler with track cycling.
-    /// R = restart current track, M = next track, N = previous track.
-    /// Shows current track name on screen via OnGUI (works in WebGL).
-    /// </summary>
+    /// <summary>Simple restart/track-switch handler (backup for SceneSetup).</summary>
     public class RestartHandler : MonoBehaviour
     {
-        private float trackNameShowTimer = 3f; // Show track name for 3s on load
-        private string currentTrackName = "";
-        private string currentTrackEmoji = "";
-        private int totalTracks = 1;
-        private GUIStyle labelStyle;
-        private GUIStyle hintStyle;
-
-        void Start()
-        {
-            var allTracks = TrackData.GetAllTracks();
-            totalTracks = allTracks.Length;
-            int idx = Mathf.Clamp(SceneSetup.SelectedTrackIndex, 0, totalTracks - 1);
-            currentTrackName = allTracks[idx].trackName;
-            currentTrackEmoji = allTracks[idx].trackEmoji;
-            trackNameShowTimer = 4f;
-        }
-
-        void Update()
-        {
-            if (trackNameShowTimer > 0)
-                trackNameShowTimer -= Time.deltaTime;
-
-            if (Input.GetKeyDown(KeyCode.R))
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
-            }
-            if (Input.GetKeyDown(KeyCode.M))
-            {
-                // Next track
-                SceneSetup.SelectedTrackIndex = (SceneSetup.SelectedTrackIndex + 1) % totalTracks;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
-            }
-            if (Input.GetKeyDown(KeyCode.N))
-            {
-                // Previous track
-                SceneSetup.SelectedTrackIndex = (SceneSetup.SelectedTrackIndex - 1 + totalTracks) % totalTracks;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
-            }
-        }
-
-        void OnGUI()
-        {
-            // Build styles once
-            if (labelStyle == null)
-            {
-                labelStyle = new GUIStyle(GUI.skin.label);
-                labelStyle.fontSize = 36;
-                labelStyle.fontStyle = FontStyle.Bold;
-                labelStyle.alignment = TextAnchor.MiddleCenter;
-                labelStyle.normal.textColor = Color.white;
-
-                hintStyle = new GUIStyle(GUI.skin.label);
-                hintStyle.fontSize = 18;
-                hintStyle.alignment = TextAnchor.MiddleCenter;
-                hintStyle.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
-            }
-
-            // Show track name banner on load (fades out after a few seconds)
-            if (trackNameShowTimer > 0f)
-            {
-                float alpha = Mathf.Clamp01(trackNameShowTimer / 1f); // Fade in last second
-                Color c = new Color(0, 0, 0, 0.6f * alpha);
-                Color textCol = new Color(1, 1, 1, alpha);
-                Color hintCol = new Color(1, 1, 1, 0.7f * alpha);
-
-                // Dark banner background
-                Rect bannerRect = new Rect(0, 20, Screen.width, 100);
-                GUI.color = c;
-                GUI.DrawTexture(bannerRect, Texture2D.whiteTexture);
-
-                // Track name
-                GUI.color = textCol;
-                labelStyle.normal.textColor = textCol;
-                string trackLabel = $"{currentTrackEmoji}  {currentTrackName}  {currentTrackEmoji}   ({SceneSetup.SelectedTrackIndex + 1}/{totalTracks})";
-                GUI.Label(new Rect(0, 30, Screen.width, 50), trackLabel, labelStyle);
-
-                // Hint
-                GUI.color = hintCol;
-                hintStyle.normal.textColor = hintCol;
-                GUI.Label(new Rect(0, 75, Screen.width, 30), "M = Next Track  |  N = Prev Track  |  R = Restart", hintStyle);
-
-                GUI.color = Color.white; // Reset
-            }
-        }
+        // Key handling is now in SceneSetup.Update()
+        // This class kept for compatibility but does nothing extra.
     }
 }
