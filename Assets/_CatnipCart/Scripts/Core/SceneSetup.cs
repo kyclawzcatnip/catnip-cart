@@ -42,7 +42,85 @@ namespace CatnipCart.Core
             if (SelectedTrackIndex < 0) SelectedTrackIndex = 0;
             var allTracks = TrackData.GetAllTracks();
             int idx = Mathf.Clamp(SelectedTrackIndex, 0, allTracks.Length - 1);
+            _currentTrackName = allTracks[idx].trackName;
+            _totalTracks = allTracks.Length;
+            _trackBannerTimer = 4f;
             BuildScene(allTracks[idx]);
+        }
+
+        // --- Track switching (M/N/R keys) handled here for reliability ---
+        private static string _currentTrackName = "";
+        private static int _totalTracks = 8;
+        private float _trackBannerTimer = 0f;
+        private bool _reloading = false;
+
+        void Update()
+        {
+            if (_reloading) return;
+
+            if (_trackBannerTimer > 0f)
+                _trackBannerTimer -= Time.unscaledDeltaTime;
+
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                SelectedTrackIndex = (SelectedTrackIndex + 1) % _totalTracks;
+                ReloadScene();
+            }
+            else if (Input.GetKeyDown(KeyCode.N))
+            {
+                SelectedTrackIndex = (SelectedTrackIndex - 1 + _totalTracks) % _totalTracks;
+                ReloadScene();
+            }
+            else if (Input.GetKeyDown(KeyCode.R))
+            {
+                ReloadScene();
+            }
+        }
+
+        void ReloadScene()
+        {
+            _reloading = true;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        }
+
+        void OnGUI()
+        {
+            // Always show a small hint in the corner
+            GUI.color = new Color(1, 1, 1, 0.5f);
+            GUI.Label(new Rect(10, Screen.height - 30, 400, 25),
+                "M=Next Track | N=Prev | R=Restart");
+
+            // Show track name banner on load
+            if (_trackBannerTimer > 0f)
+            {
+                float alpha = Mathf.Clamp01(_trackBannerTimer);
+
+                // Dark banner
+                GUI.color = new Color(0, 0, 0, 0.7f * alpha);
+                GUI.DrawTexture(new Rect(0, 20, Screen.width, 90), Texture2D.whiteTexture);
+
+                // Track name
+                GUIStyle big = new GUIStyle(GUI.skin.label);
+                big.fontSize = 32;
+                big.fontStyle = FontStyle.Bold;
+                big.alignment = TextAnchor.MiddleCenter;
+                big.normal.textColor = new Color(1, 1, 1, alpha);
+                GUI.color = new Color(1, 1, 1, alpha);
+                GUI.Label(new Rect(0, 25, Screen.width, 45),
+                    $"{_currentTrackName}  ({SelectedTrackIndex + 1}/{_totalTracks})", big);
+
+                // Controls hint
+                GUIStyle hint = new GUIStyle(GUI.skin.label);
+                hint.fontSize = 16;
+                hint.alignment = TextAnchor.MiddleCenter;
+                hint.normal.textColor = new Color(1, 1, 1, 0.7f * alpha);
+                GUI.color = new Color(1, 1, 1, 0.7f * alpha);
+                GUI.Label(new Rect(0, 70, Screen.width, 30),
+                    "M = Next Track  |  N = Prev Track  |  R = Restart", hint);
+
+                GUI.color = Color.white;
+            }
         }
 
         void ShowTrackSelect()
