@@ -16,6 +16,9 @@ namespace CatnipCart.Editor
             string scenePath = "Assets/_CatnipCart/Scenes/CatnipGardens.unity";
             AutoSceneSetup.CreateRaceScene();
 
+            // Use our custom loading screen template
+            PlayerSettings.WebGL.template = "PROJECT:CatnipCart";
+
             // Set up player settings for WebGL
             // Disable compression to ensure it runs on GitHub pages without needing special server configs
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
