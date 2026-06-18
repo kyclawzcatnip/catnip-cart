@@ -43,79 +43,134 @@ namespace CatnipCart.Core
             BuildScene(allTracks[idx]);
         }
 
+        private bool _menuOpen = false;
+        private TrackData[] _allTracks;
+
         void Update()
         {
-            if (_trackBannerTimer > 0f)
-                _trackBannerTimer -= Time.unscaledDeltaTime;
+            // Tab or Escape toggles the track select menu
+            if (Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Escape))
+            {
+                _menuOpen = !_menuOpen;
+                Time.timeScale = _menuOpen ? 0f : 1f;
+            }
 
-            // Track switching keys
-            if (Input.GetKeyDown(KeyCode.M))
+            // R to restart (only when menu is closed)
+            if (!_menuOpen && Input.GetKeyDown(KeyCode.R))
             {
-                SelectedTrackIndex = (SelectedTrackIndex + 1) % _totalTracks;
+                Time.timeScale = 1f;
                 UnityEngine.SceneManagement.SceneManager.LoadScene(0);
-            }
-            else if (Input.GetKeyDown(KeyCode.N))
-            {
-                SelectedTrackIndex = (SelectedTrackIndex - 1 + _totalTracks) % _totalTracks;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
-            }
-            else if (Input.GetKeyDown(KeyCode.R))
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
-            }
-            // Number keys 1-8 for direct track pick
-            for (int i = 0; i < _totalTracks && i < 8; i++)
-            {
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
-                {
-                    SelectedTrackIndex = i;
-                    UnityEngine.SceneManagement.SceneManager.LoadScene(0);
-                    break;
-                }
             }
         }
 
         void OnGUI()
         {
-            // --- Styles ---
-            GUIStyle btnStyle = new GUIStyle(GUI.skin.button);
-            btnStyle.fontSize = 20;
-            btnStyle.fontStyle = FontStyle.Bold;
+            // --- Always show small hint at bottom ---
+            GUIStyle hintStyle = new GUIStyle(GUI.skin.label);
+            hintStyle.fontSize = 14;
+            hintStyle.normal.textColor = new Color(1, 1, 1, 0.6f);
+            GUI.Label(new Rect(10, Screen.height - 25, 400, 20),
+                "TAB = Track Select | R = Restart", hintStyle);
 
-            GUIStyle trackLabel = new GUIStyle(GUI.skin.label);
-            trackLabel.fontSize = 16;
-            trackLabel.fontStyle = FontStyle.Bold;
-            trackLabel.alignment = TextAnchor.MiddleCenter;
-            trackLabel.normal.textColor = Color.white;
-
-            // --- Track name + navigation buttons at top-left ---
-            float btnW = 50;
-            float btnH = 35;
-            float labelW = 250;
-            float startX = 10;
-            float startY = 10;
-
-            // Dark background behind the buttons
-            GUI.color = new Color(0, 0, 0, 0.6f);
-            GUI.DrawTexture(new Rect(startX - 5, startY - 5, btnW + labelW + btnW + 25, btnH + 10), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            // < Prev button
-            if (GUI.Button(new Rect(startX, startY, btnW, btnH), "<", btnStyle))
+            // --- Track name banner on load ---
+            if (_trackBannerTimer > 0f)
             {
-                SelectedTrackIndex = (SelectedTrackIndex - 1 + _totalTracks) % _totalTracks;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+                _trackBannerTimer -= Time.unscaledDeltaTime;
+                float alpha = Mathf.Clamp01(_trackBannerTimer);
+                GUI.color = new Color(0, 0, 0, 0.7f * alpha);
+                GUI.DrawTexture(new Rect(0, 10, Screen.width, 50), Texture2D.whiteTexture);
+                GUIStyle bannerStyle = new GUIStyle(GUI.skin.label);
+                bannerStyle.fontSize = 28;
+                bannerStyle.fontStyle = FontStyle.Bold;
+                bannerStyle.alignment = TextAnchor.MiddleCenter;
+                bannerStyle.normal.textColor = new Color(1, 1, 1, alpha);
+                GUI.color = new Color(1, 1, 1, alpha);
+                GUI.Label(new Rect(0, 12, Screen.width, 46), _currentTrackName, bannerStyle);
+                GUI.color = Color.white;
             }
 
-            // Track name label
-            GUI.Label(new Rect(startX + btnW + 5, startY, labelW, btnH),
-                $"{_currentTrackName} ({SelectedTrackIndex + 1}/{_totalTracks})", trackLabel);
+            // --- Full-screen track select menu ---
+            if (!_menuOpen) return;
 
-            // > Next button
-            if (GUI.Button(new Rect(startX + btnW + labelW + 10, startY, btnW, btnH), ">", btnStyle))
+            if (_allTracks == null)
+                _allTracks = TrackData.GetAllTracks();
+
+            // Darken background
+            GUI.color = new Color(0, 0, 0, 0.85f);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            // Title
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label);
+            titleStyle.fontSize = 40;
+            titleStyle.fontStyle = FontStyle.Bold;
+            titleStyle.alignment = TextAnchor.MiddleCenter;
+            titleStyle.normal.textColor = Color.white;
+            GUI.Label(new Rect(0, 30, Screen.width, 60), "SELECT TRACK", titleStyle);
+
+            // Subtitle
+            GUIStyle subStyle = new GUIStyle(GUI.skin.label);
+            subStyle.fontSize = 16;
+            subStyle.alignment = TextAnchor.MiddleCenter;
+            subStyle.normal.textColor = new Color(1, 1, 1, 0.5f);
+            GUI.Label(new Rect(0, 80, Screen.width, 30), "Click a track to race! Press TAB to close.", subStyle);
+
+            // Track buttons grid (2 columns)
+            int columns = 2;
+            float btnW = 320;
+            float btnH = 55;
+            float gap = 15;
+            float gridW = columns * btnW + (columns - 1) * gap;
+            float startX = (Screen.width - gridW) / 2f;
+            float startY = 130;
+
+            for (int i = 0; i < _allTracks.Length; i++)
             {
-                SelectedTrackIndex = (SelectedTrackIndex + 1) % _totalTracks;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+                int col = i % columns;
+                int row = i / columns;
+                float x = startX + col * (btnW + gap);
+                float y = startY + row * (btnH + gap);
+
+                bool isCurrent = (i == SelectedTrackIndex);
+
+                // Button style
+                GUIStyle trackBtn = new GUIStyle(GUI.skin.button);
+                trackBtn.fontSize = 20;
+                trackBtn.fontStyle = isCurrent ? FontStyle.Bold : FontStyle.Normal;
+                trackBtn.alignment = TextAnchor.MiddleCenter;
+
+                // Highlight current track
+                if (isCurrent)
+                {
+                    GUI.color = new Color(0.3f, 1f, 0.4f, 1f);
+                }
+                else
+                {
+                    GUI.color = Color.white;
+                }
+
+                string label = $"{_allTracks[i].trackEmoji}  {_allTracks[i].trackName}";
+                if (isCurrent) label += "  (current)";
+
+                if (GUI.Button(new Rect(x, y, btnW, btnH), label, trackBtn))
+                {
+                    SelectedTrackIndex = i;
+                    _menuOpen = false;
+                    Time.timeScale = 1f;
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+                }
+            }
+
+            GUI.color = Color.white;
+
+            // Close button at bottom
+            GUIStyle closeStyle = new GUIStyle(GUI.skin.button);
+            closeStyle.fontSize = 18;
+            float closeY = startY + ((_allTracks.Length + 1) / columns) * (btnH + gap) + 10;
+            if (GUI.Button(new Rect(Screen.width / 2f - 100, closeY, 200, 45), "Close (TAB)", closeStyle))
+            {
+                _menuOpen = false;
+                Time.timeScale = 1f;
             }
         }
 
