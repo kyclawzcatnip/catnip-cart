@@ -3,49 +3,110 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 
 namespace CatnipCart.Editor
 {
     public class WebGLBuilder
     {
-        [MenuItem("Build/Build WebGL")]
-        public static void Build()
+        /// <summary>
+        /// Path to the GitHub Pages deployment repo (CatnipKart).
+        /// Build outputs go directly here so you only need to push.
+        /// </summary>
+        static readonly string DeployPath = @"C:\Users\kyanc\My project (3)\docs";
+
+        [MenuItem("Catnip Cart/Build WebGL + Deploy")]
+        public static void BuildAndDeploy()
         {
-            Debug.Log("Starting WebGL Build...");
+            if (BuildWebGL())
+            {
+                PushToGitHubPages();
+            }
+        }
+
+        [MenuItem("Catnip Cart/Build WebGL (Local Only)")]
+        public static void BuildOnly()
+        {
+            BuildWebGL();
+        }
+
+        static bool BuildWebGL()
+        {
+            UnityEngine.Debug.Log("🐾 Starting WebGL Build...");
 
             // Always ensure shader materials exist and regenerate scene
             // so it references them — prevents texture variant stripping
             string scenePath = "Assets/_CatnipCart/Scenes/CatnipGardens.unity";
             AutoSceneSetup.CreateRaceScene();
 
-            // Try to set custom template (may not take effect on all Unity versions)
-            PlayerSettings.WebGL.template = "PROJECT:CatnipCart";
-
             // Set up player settings for WebGL
             // Disable compression to ensure it runs on GitHub pages without needing special server configs
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             
-            // Build options
+            // Build directly to the GitHub Pages repo docs/ folder
             BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
             buildPlayerOptions.scenes = new[] { scenePath };
-            buildPlayerOptions.locationPathName = "docs"; // GitHub Pages uses the 'docs' folder
+            buildPlayerOptions.locationPathName = DeployPath;
             buildPlayerOptions.target = BuildTarget.WebGL;
             buildPlayerOptions.options = BuildOptions.None;
 
             var report = BuildPipeline.BuildPlayer(buildPlayerOptions);
             
-            Debug.Log($"Build ended with result: {report.summary.result}");
+            UnityEngine.Debug.Log($"Build ended with result: {report.summary.result}");
             
             if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
             {
-                Debug.Log("WebGL Build completed successfully!");
+                UnityEngine.Debug.Log("✅ WebGL Build completed successfully!");
                 // Replace the default index.html with our custom loading screen
                 InjectCustomLoadingScreen();
+                return true;
             }
             else
             {
-                Debug.LogError("WebGL Build failed!");
+                UnityEngine.Debug.LogError("❌ WebGL Build failed!");
+                return false;
             }
+        }
+
+        /// <summary>
+        /// Auto-commit and push the build to the CatnipKart GitHub Pages repo.
+        /// </summary>
+        static void PushToGitHubPages()
+        {
+            string repoPath = Path.GetDirectoryName(DeployPath); // "My project (3)"
+            UnityEngine.Debug.Log($"🚀 Pushing build to GitHub Pages from: {repoPath}");
+
+            try
+            {
+                RunGit(repoPath, "add docs/");
+                RunGit(repoPath, "commit -m \"Update WebGL build\"");
+                RunGit(repoPath, "push");
+                UnityEngine.Debug.Log("✅ Deployed to GitHub Pages! Site will update in ~1 minute.");
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"❌ Git push failed: {ex.Message}");
+            }
+        }
+
+        static void RunGit(string workDir, string args)
+        {
+            var psi = new ProcessStartInfo("git", args)
+            {
+                WorkingDirectory = workDir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            var proc = Process.Start(psi);
+            proc.WaitForExit(60000);
+            string output = proc.StandardOutput.ReadToEnd();
+            string error = proc.StandardError.ReadToEnd();
+            if (proc.ExitCode != 0)
+                throw new System.Exception($"git {args} failed: {error}");
+            if (!string.IsNullOrEmpty(output))
+                UnityEngine.Debug.Log(output.Trim());
         }
 
         /// <summary>
@@ -55,7 +116,7 @@ namespace CatnipCart.Editor
         /// </summary>
         static void InjectCustomLoadingScreen()
         {
-            string docsPath = Path.Combine(Application.dataPath, "..", "docs");
+            string docsPath = DeployPath;
             string buildDir = Path.Combine(docsPath, "Build");
 
             if (!Directory.Exists(buildDir))
