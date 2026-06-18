@@ -3,7 +3,6 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using System.IO;
 using System.Linq;
-using System.Diagnostics;
 
 namespace CatnipCart.Editor
 {
@@ -91,7 +90,7 @@ namespace CatnipCart.Editor
 
         static void RunGit(string workDir, string args)
         {
-            var psi = new ProcessStartInfo("git", args)
+            var psi = new System.Diagnostics.ProcessStartInfo("git", args)
             {
                 WorkingDirectory = workDir,
                 RedirectStandardOutput = true,
@@ -99,7 +98,7 @@ namespace CatnipCart.Editor
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            var proc = Process.Start(psi);
+            var proc = System.Diagnostics.Process.Start(psi);
             proc.WaitForExit(60000);
             string output = proc.StandardOutput.ReadToEnd();
             string error = proc.StandardError.ReadToEnd();
