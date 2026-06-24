@@ -38,9 +38,19 @@ namespace CatnipCart.Editor
             string scenePath = "Assets/_CatnipCart/Scenes/CatnipGardens.unity";
             AutoSceneSetup.CreateRaceScene();
 
+            // Clean output directory first to remove obsolete uncompressed build files
+            string buildDir = Path.Combine(DeployPath, "Build");
+            if (Directory.Exists(buildDir))
+            {
+                try { Directory.Delete(buildDir, true); }
+                catch (System.Exception ex) { UnityEngine.Debug.LogWarning($"Could not clean build dir: {ex.Message}"); }
+            }
+
             // Set up player settings for WebGL
-            // Disable compression to ensure it runs on GitHub pages without needing special server configs
-            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            // Enable Brotli compression and decompression fallback so it works seamlessly on GitHub Pages
+            // while reducing transfer sizes by ~80%!
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
+            PlayerSettings.WebGL.decompressionFallback = true;
             
             // Build directly to the GitHub Pages repo docs/ folder
             BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
