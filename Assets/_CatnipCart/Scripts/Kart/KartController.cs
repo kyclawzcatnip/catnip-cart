@@ -42,11 +42,11 @@ namespace CatnipCart.Kart
         void Awake()
         {
             rb = GetComponent<Rigidbody>();
-            input = GetComponent<IKartInput>() as IKartInput;
         }
 
         void Start()
         {
+            input = GetComponent<IKartInput>() as IKartInput;
             rb.mass = stats.mass;
             rb.useGravity = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
