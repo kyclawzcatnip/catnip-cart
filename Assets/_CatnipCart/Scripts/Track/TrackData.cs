@@ -233,23 +233,23 @@ namespace CatnipCart.Track
                 {
                     // Starting island
                     new Vector3(0, 0, 0),
-                    new Vector3(35, 2, 20),
+                    new Vector3(35, 1, 20),
                     // Bridge to second island
-                    new Vector3(70, 5, 30),
+                    new Vector3(70, 3, 30),
                     // Spiral climb
-                    new Vector3(100, 10, 50),
-                    new Vector3(110, 16, 80),
-                    new Vector3(95, 22, 110),
+                    new Vector3(100, 6, 50),
+                    new Vector3(110, 10, 80),
+                    new Vector3(95, 14, 110),
                     // Summit peak
-                    new Vector3(70, 25, 120),
+                    new Vector3(70, 18, 120),
                     // Thrilling descent
-                    new Vector3(40, 18, 125),
-                    new Vector3(10, 12, 115),
+                    new Vector3(40, 13, 125),
+                    new Vector3(10, 9, 115),
                     // Floating bridge (stays high)
-                    new Vector3(-15, 10, 95),
-                    new Vector3(-25, 8, 65),
-                    // Steep drop
-                    new Vector3(-30, 3, 40),
+                    new Vector3(-15, 7, 95),
+                    new Vector3(-25, 5, 65),
+                    // Gentle drop
+                    new Vector3(-30, 2, 40),
                     // Rainbow curve back
                     new Vector3(-20, 1, 15),
                 },
@@ -355,28 +355,28 @@ namespace CatnipCart.Track
                 {
                     // Base camp start
                     new Vector3(0, 0, 0),
-                    new Vector3(35, 3, 20),
-                    // Begin steep climb
-                    new Vector3(60, 8, 50),
-                    new Vector3(75, 14, 80),
-                    // First switchback right
-                    new Vector3(55, 18, 100),
-                    new Vector3(30, 22, 95),
+                    new Vector3(40, 2, 20),
+                    // Begin steady climb
+                    new Vector3(75, 5, 50),
+                    new Vector3(95, 8, 85),
+                    // First switchback right (gentler)
+                    new Vector3(75, 11, 110),
+                    new Vector3(45, 13, 105),
                     // Hairpin left up the ridge
-                    new Vector3(15, 26, 75),
-                    new Vector3(30, 30, 55),
+                    new Vector3(25, 15, 85),
+                    new Vector3(40, 17, 65),
                     // Summit pass
-                    new Vector3(55, 28, 40),
-                    // Steep descent switchback
-                    new Vector3(70, 22, 20),
-                    new Vector3(80, 16, -5),
-                    // Icy valley bottom
-                    new Vector3(65, 8, -25),
-                    new Vector3(40, 4, -30),
+                    new Vector3(65, 18, 50),
+                    // Gradual descent switchback
+                    new Vector3(85, 14, 30),
+                    new Vector3(95, 10, 5),
+                    // Valley floor
+                    new Vector3(80, 6, -20),
+                    new Vector3(55, 3, -30),
                     // Final curve through glacier
-                    new Vector3(15, 2, -25),
-                    new Vector3(-5, 0, -15),
-                    new Vector3(-10, 0, -5),
+                    new Vector3(30, 1, -25),
+                    new Vector3(10, 0, -15),
+                    new Vector3(-5, 0, -5),
                 },
 
                 roadWidth = 12f,

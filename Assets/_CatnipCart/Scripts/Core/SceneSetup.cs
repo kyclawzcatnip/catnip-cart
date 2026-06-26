@@ -474,7 +474,6 @@ namespace CatnipCart.Core
                 float side = (i % 2 == 0) ? 1 : -1;
                 float offset = 12f + Random.Range(3f, 10f);
                 Vector3 treePos = center + right * side * offset;
-                treePos.y = 0;
                 CreateTree(treePos, treeMat, trunkMat);
             }
 
@@ -485,14 +484,15 @@ namespace CatnipCart.Core
                 Vector3 fwd = spline.GetDirectionAtDistance(dist);
                 Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
 
-                float yarnOffset = Random.Range(-6f, 6f);
+                float yarnSide = (Random.value > 0.5f) ? 1f : -1f;
+                float yarnOffset = yarnSide * Random.Range(10f, 16f);
                 Vector3 pos = center + right * yarnOffset;
-                pos.y = 1.5f;
+                pos.y += 1.0f;
 
                 var yarnGO = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 yarnGO.name = $"YarnDecor_{i}";
                 yarnGO.transform.position = pos;
-                yarnGO.transform.localScale = Vector3.one * 3f;
+                yarnGO.transform.localScale = Vector3.one * 1.5f;
                 yarnGO.GetComponent<Renderer>().material = yarnMat;
             }
         }
@@ -518,7 +518,6 @@ namespace CatnipCart.Core
 
                 float side = (i % 2 == 0) ? 1 : -1;
                 Vector3 lampPos = center + right * side * 10f;
-                lampPos.y = 0;
 
                 CreateStreetLamp(lampPos, metalMat);
             }
@@ -543,6 +542,73 @@ namespace CatnipCart.Core
                 sign.GetComponent<Renderer>().material = (i % 2 == 0) ? neonPink : neonBlue;
                 Destroy(sign.GetComponent<Collider>());
             }
+
+            // City buildings along the track
+            Material concreteMat = MakeMat(new Color(0.25f, 0.25f, 0.3f));
+            Material glassMat = MakeMat(new Color(0.15f, 0.2f, 0.35f));
+            glassMat.SetFloat("_Smoothness", 0.85f);
+            Material darkConcrete = MakeMat(new Color(0.18f, 0.18f, 0.22f));
+
+            for (int i = 0; i < 20; i++)
+            {
+                float dist = (i / 20f) * totalLen;
+                Vector3 center = spline.GetPointAtDistance(dist);
+                Vector3 fwd = spline.GetDirectionAtDistance(dist);
+                Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+
+                float side = (i % 2 == 0) ? 1 : -1;
+                float offset = 16f + Random.Range(2f, 8f);
+                Vector3 pos = center + right * side * offset;
+
+                var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                building.name = $"Building_{i}";
+                float bHeight = Random.Range(8f, 25f);
+                float bWidth = Random.Range(4f, 8f);
+                float bDepth = Random.Range(4f, 8f);
+                building.transform.position = pos + Vector3.up * bHeight * 0.5f;
+                building.transform.localScale = new Vector3(bWidth, bHeight, bDepth);
+                building.transform.rotation = Quaternion.Euler(0, Random.Range(0, 30), 0);
+
+                // Alternate building materials
+                Material bMat;
+                switch (i % 3)
+                {
+                    case 0: bMat = concreteMat; break;
+                    case 1: bMat = glassMat; break;
+                    default: bMat = darkConcrete; break;
+                }
+                building.GetComponent<Renderer>().material = bMat;
+                Destroy(building.GetComponent<Collider>());
+
+                // Rooftop accent (water tank / antenna)
+                if (i % 3 == 0)
+                {
+                    var rooftop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    rooftop.transform.position = pos + Vector3.up * (bHeight + 1f);
+                    rooftop.transform.localScale = new Vector3(0.3f, 1.5f, 0.3f);
+                    rooftop.GetComponent<Renderer>().material = metalMat;
+                    Destroy(rooftop.GetComponent<Collider>());
+                }
+
+                // Lit windows (small emissive cubes on the building face)
+                for (int wn = 0; wn < 4; wn++)
+                {
+                    var win = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    win.transform.position = pos + new Vector3(
+                        Random.Range(-bWidth * 0.3f, bWidth * 0.3f),
+                        Random.Range(2f, bHeight - 1f),
+                        side * (bDepth * 0.51f));
+                    win.transform.localScale = new Vector3(1f, 1.2f, 0.1f);
+                    Color winColor = (wn % 2 == 0)
+                        ? new Color(1f, 0.9f, 0.5f)
+                        : new Color(0.5f, 0.8f, 1f);
+                    var winMat = MakeMat(winColor);
+                    winMat.EnableKeyword("_EMISSION");
+                    winMat.SetColor("_EmissionColor", winColor * 1.5f);
+                    win.GetComponent<Renderer>().material = winMat;
+                    Destroy(win.GetComponent<Collider>());
+                }
+            }
         }
 
         // --- MEOWZ'ES MANSION: Tombstones + dead trees ---
@@ -563,7 +629,6 @@ namespace CatnipCart.Core
                 float side = (i % 2 == 0) ? 1 : -1;
                 float offset = 10f + Random.Range(2f, 8f);
                 Vector3 pos = center + right * side * offset;
-                pos.y = 0;
 
                 var stone = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 stone.name = $"Tombstone_{i}";
@@ -585,7 +650,6 @@ namespace CatnipCart.Core
                 float side = (i % 2 == 0) ? 1 : -1;
                 float offset = 14f + Random.Range(2f, 8f);
                 Vector3 pos = center + right * side * offset;
-                pos.y = 0;
 
                 var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 trunk.name = $"DeadTree_{i}";
@@ -611,6 +675,94 @@ namespace CatnipCart.Core
                     Destroy(branch.GetComponent<Collider>());
                 }
             }
+
+            // --- THE MANSION ---
+            // Place a large gothic mansion building near the track start
+            Vector3 mansionCenter = spline.GetPointAtDistance(0);
+            Vector3 mansionFwd = spline.GetDirectionAtDistance(0);
+            Vector3 mansionRight = Vector3.Cross(Vector3.up, mansionFwd).normalized;
+            Vector3 mansionPos = mansionCenter + mansionRight * 25f;
+
+            Material darkStoneMat = MakeMat(new Color(0.2f, 0.18f, 0.22f));
+            Material roofMat = MakeMat(new Color(0.15f, 0.08f, 0.12f));
+            Material windowMat = MakeMat(new Color(0.6f, 0.8f, 0.3f));
+            windowMat.EnableKeyword("_EMISSION");
+            windowMat.SetColor("_EmissionColor", new Color(0.4f, 0.6f, 0.2f) * 2f);
+
+            var mansion = new GameObject("Mansion");
+            mansion.transform.position = mansionPos;
+
+            // Main building body
+            var mainBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            mainBody.transform.SetParent(mansion.transform, false);
+            mainBody.transform.localPosition = Vector3.up * 6f;
+            mainBody.transform.localScale = new Vector3(14f, 12f, 10f);
+            mainBody.GetComponent<Renderer>().material = darkStoneMat;
+            Destroy(mainBody.GetComponent<Collider>());
+
+            // Peaked roof (rotated cube)
+            var roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            roof.transform.SetParent(mansion.transform, false);
+            roof.transform.localPosition = new Vector3(0, 13.5f, 0);
+            roof.transform.localScale = new Vector3(11f, 5f, 8f);
+            roof.transform.localRotation = Quaternion.Euler(0, 0, 45);
+            roof.GetComponent<Renderer>().material = roofMat;
+            Destroy(roof.GetComponent<Collider>());
+
+            // Left tower
+            var towerL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            towerL.transform.SetParent(mansion.transform, false);
+            towerL.transform.localPosition = new Vector3(-6f, 9f, 0);
+            towerL.transform.localScale = new Vector3(4f, 18f, 4f);
+            towerL.GetComponent<Renderer>().material = darkStoneMat;
+            Destroy(towerL.GetComponent<Collider>());
+
+            // Left tower peaked cap
+            var towerLCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            towerLCap.transform.SetParent(mansion.transform, false);
+            towerLCap.transform.localPosition = new Vector3(-6f, 19f, 0);
+            towerLCap.transform.localScale = new Vector3(3f, 3f, 3f);
+            towerLCap.transform.localRotation = Quaternion.Euler(0, 0, 45);
+            towerLCap.GetComponent<Renderer>().material = roofMat;
+            Destroy(towerLCap.GetComponent<Collider>());
+
+            // Right tower
+            var towerR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            towerR.transform.SetParent(mansion.transform, false);
+            towerR.transform.localPosition = new Vector3(6f, 7.5f, 0);
+            towerR.transform.localScale = new Vector3(4f, 15f, 4f);
+            towerR.GetComponent<Renderer>().material = darkStoneMat;
+            Destroy(towerR.GetComponent<Collider>());
+
+            // Right tower cap
+            var towerRCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            towerRCap.transform.SetParent(mansion.transform, false);
+            towerRCap.transform.localPosition = new Vector3(6f, 16f, 0);
+            towerRCap.transform.localScale = new Vector3(3f, 3f, 3f);
+            towerRCap.transform.localRotation = Quaternion.Euler(0, 0, 45);
+            towerRCap.GetComponent<Renderer>().material = roofMat;
+            Destroy(towerRCap.GetComponent<Collider>());
+
+            // Glowing windows
+            for (int w = 0; w < 6; w++)
+            {
+                var window = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                window.transform.SetParent(mansion.transform, false);
+                float wx = -4f + (w % 3) * 4f;
+                float wy = 4f + (w / 3) * 5f;
+                window.transform.localPosition = new Vector3(wx, wy, 5.1f);
+                window.transform.localScale = new Vector3(1.5f, 2f, 0.2f);
+                window.GetComponent<Renderer>().material = windowMat;
+                Destroy(window.GetComponent<Collider>());
+            }
+
+            // Entrance door
+            var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            door.transform.SetParent(mansion.transform, false);
+            door.transform.localPosition = new Vector3(0, 1.5f, 5.1f);
+            door.transform.localScale = new Vector3(2.5f, 3f, 0.3f);
+            door.GetComponent<Renderer>().material = MakeMat(new Color(0.3f, 0.15f, 0.08f));
+            Destroy(door.GetComponent<Collider>());
         }
 
         // --- CATNIP SKY LANDS: Clouds + rainbow arcs ---
@@ -688,7 +840,6 @@ namespace CatnipCart.Core
                 float side = (i % 2 == 0) ? 1 : -1;
                 float offset = 12f + Random.Range(3f, 10f);
                 Vector3 pos = center + right * side * offset;
-                pos.y = 0;
 
                 CreatePalmTree(pos, palmTrunkMat, palmLeafMat);
             }
@@ -703,7 +854,6 @@ namespace CatnipCart.Core
 
                 float side = (i % 2 == 0) ? 1 : -1;
                 Vector3 pos = center + right * side * 14f;
-                pos.y = 0;
 
                 CreateBeachUmbrella(pos, i);
             }
@@ -772,7 +922,6 @@ namespace CatnipCart.Core
                 float side = (i % 2 == 0) ? 1 : -1;
                 float offset = 11f + Random.Range(2f, 8f);
                 Vector3 pos = center + right * side * offset;
-                pos.y = 0;
 
                 var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 block.name = $"ToyBlock_{i}";
@@ -817,65 +966,160 @@ namespace CatnipCart.Core
         // --- NEKO NETHERVOID: Floating asteroids + star particles ---
         void PlaceNethervoidDecor(TrackSpline spline, float totalLen)
         {
-            Material asteroidMat = MakeMat(new Color(0.15f, 0.12f, 0.2f));
-            Material glowMat = MakeMat(new Color(0.1f, 0.8f, 0.9f));
-            glowMat.EnableKeyword("_EMISSION");
-            glowMat.SetColor("_EmissionColor", new Color(0.1f, 0.8f, 0.9f) * 3f);
+            Material asteroidMat = MakeMat(new Color(0.12f, 0.08f, 0.18f));
+            Material asteroidDarkMat = MakeMat(new Color(0.06f, 0.04f, 0.1f));
 
-            // Floating asteroid rocks
-            for (int i = 0; i < 30; i++)
+            // --- Large floating asteroid formations ---
+            for (int i = 0; i < 40; i++)
             {
-                float dist = (i / 30f) * totalLen;
+                float dist = (i / 40f) * totalLen;
                 Vector3 center = spline.GetPointAtDistance(dist);
                 Vector3 fwd = spline.GetDirectionAtDistance(dist);
                 Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
 
                 float side = (i % 2 == 0) ? 1 : -1;
-                float offset = 14f + Random.Range(3f, 15f);
+                float offset = 14f + Random.Range(5f, 25f);
                 Vector3 pos = center + right * side * offset;
-                pos.y += Random.Range(-5f, 10f);
+                pos.y += Random.Range(-8f, 15f);
 
                 var asteroid = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 asteroid.name = $"Asteroid_{i}";
                 asteroid.transform.position = pos;
-                float scale = Random.Range(1.5f, 5f);
+                float scale = Random.Range(2f, 8f);
                 asteroid.transform.localScale = new Vector3(
-                    scale * Random.Range(0.7f, 1.3f),
-                    scale * Random.Range(0.6f, 1f),
-                    scale * Random.Range(0.8f, 1.2f));
+                    scale * Random.Range(0.6f, 1.4f),
+                    scale * Random.Range(0.5f, 1f),
+                    scale * Random.Range(0.7f, 1.3f));
                 asteroid.transform.rotation = Random.rotation;
-                asteroid.GetComponent<Renderer>().material = asteroidMat;
+                asteroid.GetComponent<Renderer>().material = (i % 3 == 0) ? asteroidDarkMat : asteroidMat;
                 Destroy(asteroid.GetComponent<Collider>());
             }
 
-            // Glowing energy orbs / star particles
-            for (int i = 0; i < 15; i++)
+            // --- Glowing cosmic rings around the track ---
+            Color[] ringColors = {
+                new Color(0.1f, 0.9f, 0.95f),  // Cyan
+                new Color(0.8f, 0.1f, 0.9f),    // Magenta
+                new Color(0.3f, 0.1f, 1f),       // Deep purple
+            };
+
+            for (int r = 0; r < 4; r++)
             {
-                float dist = (i / 15f + 0.03f) * totalLen;
+                float dist = (r / 4f + 0.1f) * totalLen;
+                Vector3 center = spline.GetPointAtDistance(dist);
+                Vector3 fwd = spline.GetDirectionAtDistance(dist);
+                float ringRadius = 18f + r * 4f;
+                Color ringColor = ringColors[r % ringColors.Length];
+
+                Material ringMat = MakeMat(ringColor);
+                ringMat.EnableKeyword("_EMISSION");
+                ringMat.SetColor("_EmissionColor", ringColor * 5f);
+
+                for (int a = 0; a < 16; a++)
+                {
+                    float angle = (a / 16f) * Mathf.PI * 2f;
+                    Vector3 ringPos = center + new Vector3(
+                        Mathf.Cos(angle) * ringRadius,
+                        Mathf.Sin(angle) * ringRadius * 0.6f + 5f,
+                        0);
+
+                    var seg = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    seg.name = $"Ring_{r}_{a}";
+                    seg.transform.position = ringPos;
+                    seg.transform.localScale = Vector3.one * 0.8f;
+                    seg.GetComponent<Renderer>().material = ringMat;
+                    Destroy(seg.GetComponent<Collider>());
+                }
+            }
+
+            // --- Dense distant star field ---
+            for (int i = 0; i < 60; i++)
+            {
+                Vector3 pos = new Vector3(
+                    Random.Range(-100f, 240f),
+                    Random.Range(-30f, 50f),
+                    Random.Range(-50f, 230f));
+
+                var star = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                star.name = $"Star_{i}";
+                star.transform.position = pos;
+                star.transform.localScale = Vector3.one * Random.Range(0.15f, 0.6f);
+
+                Color starColor;
+                float roll = Random.value;
+                if (roll < 0.4f) starColor = new Color(0.6f, 0.7f, 1f);       // Blue-white
+                else if (roll < 0.7f) starColor = new Color(1f, 0.85f, 0.5f);  // Warm yellow
+                else starColor = new Color(0.9f, 0.3f, 0.7f);                  // Pink
+
+                var starMat = MakeMat(starColor);
+                starMat.EnableKeyword("_EMISSION");
+                starMat.SetColor("_EmissionColor", starColor * 6f);
+                star.GetComponent<Renderer>().material = starMat;
+                Destroy(star.GetComponent<Collider>());
+            }
+
+            // --- Glowing energy orbs (larger, closer to track) ---
+            for (int i = 0; i < 20; i++)
+            {
+                float dist = (i / 20f + 0.02f) * totalLen;
                 Vector3 center = spline.GetPointAtDistance(dist);
                 Vector3 pos = center + new Vector3(
-                    Random.Range(-20f, 20f),
-                    Random.Range(3f, 15f),
-                    Random.Range(-20f, 20f));
+                    Random.Range(-25f, 25f),
+                    Random.Range(3f, 20f),
+                    Random.Range(-25f, 25f));
 
                 var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                orb.name = $"StarOrb_{i}";
+                orb.name = $"EnergyOrb_{i}";
                 orb.transform.position = pos;
-                orb.transform.localScale = Vector3.one * Random.Range(0.3f, 1.2f);
+                orb.transform.localScale = Vector3.one * Random.Range(0.5f, 2f);
 
-                // Alternate cyan/magenta/purple glow
                 Color orbColor;
                 switch (i % 3)
                 {
-                    case 0: orbColor = new Color(0.1f, 0.9f, 1f); break;
-                    case 1: orbColor = new Color(0.8f, 0.1f, 0.9f); break;
-                    default: orbColor = new Color(0.4f, 0.2f, 1f); break;
+                    case 0: orbColor = new Color(0.1f, 0.95f, 1f); break;
+                    case 1: orbColor = new Color(0.9f, 0.1f, 0.8f); break;
+                    default: orbColor = new Color(0.4f, 0.15f, 1f); break;
                 }
                 var orbMat = MakeMat(orbColor);
                 orbMat.EnableKeyword("_EMISSION");
-                orbMat.SetColor("_EmissionColor", orbColor * 4f);
+                orbMat.SetColor("_EmissionColor", orbColor * 5f);
                 orb.GetComponent<Renderer>().material = orbMat;
                 Destroy(orb.GetComponent<Collider>());
+            }
+
+            // --- Void portals (large glowing rings at key points) ---
+            for (int p = 0; p < 2; p++)
+            {
+                float dist = (p == 0 ? 0.3f : 0.7f) * totalLen;
+                Vector3 center = spline.GetPointAtDistance(dist);
+                Vector3 fwd = spline.GetDirectionAtDistance(dist);
+                Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+
+                Vector3 portalPos = center + right * ((p == 0) ? 1 : -1) * 20f + Vector3.up * 8f;
+
+                Color portalColor = (p == 0)
+                    ? new Color(0.1f, 0.9f, 0.85f)
+                    : new Color(0.85f, 0.15f, 0.9f);
+                Material portalMat = MakeMat(portalColor);
+                portalMat.EnableKeyword("_EMISSION");
+                portalMat.SetColor("_EmissionColor", portalColor * 6f);
+
+                // Create portal ring from spheres
+                for (int a = 0; a < 20; a++)
+                {
+                    float angle = (a / 20f) * Mathf.PI * 2f;
+                    float radius = 6f;
+                    Vector3 orbPos = portalPos + new Vector3(
+                        0,
+                        Mathf.Sin(angle) * radius,
+                        Mathf.Cos(angle) * radius);
+
+                    var pOrb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    pOrb.name = $"Portal_{p}_{a}";
+                    pOrb.transform.position = orbPos;
+                    pOrb.transform.localScale = Vector3.one * 0.6f;
+                    pOrb.GetComponent<Renderer>().material = portalMat;
+                    Destroy(pOrb.GetComponent<Collider>());
+                }
             }
         }
 
